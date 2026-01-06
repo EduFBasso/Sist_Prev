@@ -4,14 +4,6 @@ Option Explicit
 ' Módulo de Simulação de Aposentadorias RGPS
 ' Sistema de Planejamento Previdenciário
 
-' Estrutura para armazenar requisitos de aposentadoria
-Type RequisitoAposentadoria
-    tempoContribuicao As Integer
-    idadeMinima As Integer
-    pontos As Integer ' Para regra de pontos
-    Nome As String
-End Type
-
 ' Função principal de simulação
 Public Function SimularAposentadorias(cpfCliente As String) As String
     Dim wsCliente As Worksheet

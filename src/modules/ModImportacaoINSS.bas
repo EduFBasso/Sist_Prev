@@ -50,7 +50,7 @@ Public Function ImportarVinculosCSV(cpfCliente As String, caminhoArquivo As Stri
             ws.Cells(linhaAtual, 5).Value = CDate(dados(2)) ' Data Início
             ws.Cells(linhaAtual, 6).Value = IIf(dados(3) <> "", CDate(dados(3)), "") ' Data Fim
             ws.Cells(linhaAtual, 7).Value = dados(4) ' Tipo Vínculo
-            ws.Cells(linhaAtual, 8).Value = IIf(UBound(dados) >= 5, dados(5), "Normal") ' Condição Especial
+            ws.Cells(linhaAtual, 8).Value = dados(5) ' Condição Especial
             
             linhaAtual = linhaAtual + 1
         End If
