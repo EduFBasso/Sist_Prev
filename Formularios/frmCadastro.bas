@@ -194,6 +194,29 @@ Private Sub cmdSalvar_Click()
 
 End Sub
 
+Private Sub cmdImportarCNIS_Click()
+
+    Dim caminho As Variant
+    Dim idCli As Long
+
+    If Trim(Me.txtID.Value) = "" Then
+        MsgBox "Carregue ou salve o cliente antes de importar vínculos.", vbExclamation
+        Exit Sub
+    End If
+
+    idCli = CLng(Me.txtID.Value)
+
+    caminho = Application.GetOpenFilename("Arquivos CSV (*.csv),*.csv", , _
+                                          "Selecione o arquivo de vínculos do CNIS")
+
+    If caminho = False Then Exit Sub
+
+    Call ImportarVinculosDeCSV(CStr(caminho), idCli)
+
+    Call CarregarVinculosCliente(idCli)
+
+End Sub
+
 ' ColetarDados - Transforma todos os campos em uma coleção organizada.
 Function ColetarDados() As Collection
 
