@@ -1,0 +1,5 @@
+Empresa;CNPJ;Data Início;Data Fim;Tipo Vínculo;Condição Especial
+Empresa Exemplo Ltda;12.345.678/0001-90;01/01/2000;31/12/2005;CLT;Normal
+Indústria XYZ SA;98.765.432/0001-10;01/01/2006;31/12/2010;CLT;Insalubre
+Comércio ABC Ltda;11.222.333/0001-44;01/01/2011;31/12/2015;CLT;Normal
+Empresa Atual Ltda;55.666.777/0001-88;01/01/2016;;CLT;Normal

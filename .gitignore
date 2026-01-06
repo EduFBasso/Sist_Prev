@@ -1,0 +1,44 @@
+# Excel temporary files
+~$*.xls*
+*.tmp
+
+# VBA export temporary files
+*.frx
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Test files
+test_*.csv
+teste_*.csv
+exemplo_teste_*.csv
+
+# Personal data (avoid committing real client data)
+*_real_*.csv
+dados_reais/
+clientes_reais/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Compiled files
+*.dll
+*.exe
+*.class
+
+# Logs
+*.log
+logs/
+
+# Temporary directory
+/tmp/
