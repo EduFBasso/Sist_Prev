@@ -169,6 +169,9 @@ Sub AtualizarIndicadoresCliente(ID_Cliente As Long)
     linhaCliente = BuscarLinhaCliente(ID_Cliente)
     If linhaCliente = 0 Then Exit Sub
 
+    ' Primeiro detecta concomitância entre todos os vínculos
+    Call DetectarConcomitancia(ID_Cliente)
+
     ' Varre todos os vínculos do cliente
     ultima = wsV.Cells(wsV.Rows.count, 1).End(xlUp).Row
 
@@ -197,3 +200,65 @@ Sub AtualizarIndicadoresCliente(ID_Cliente As Long)
 
 End Sub
 
+Sub DetectarConcomitancia(ID_Cliente As Long)
+    ' Detecta automaticamente vínculos concomitantes (sobreposição de períodos)
+    ' e marca o flag Concomitante em cada vínculo afetado
+    
+    Dim ws As Worksheet
+    Dim ultima As Long
+    Dim i As Long, j As Long
+    Dim linha1 As Long, linha2 As Long
+    Dim inicio1 As Date, fim1 As Date
+    Dim inicio2 As Date, fim2 As Date
+    
+    Set ws = Sheets("Vinculos")
+    
+    ' Primeiro limpa o flag de todos os vínculos do cliente
+    ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
+    For i = 2 To ultima
+        If ws.Cells(i, 2).Value = ID_Cliente Then
+            ws.Cells(i, 11).Value = False
+        End If
+    Next i
+    
+    ' Compara todos os pares de vínculos
+    For i = 2 To ultima
+        If ws.Cells(i, 2).Value = ID_Cliente Then
+            linha1 = i
+            
+            ' Valida datas do vínculo 1
+            On Error Resume Next
+            inicio1 = CDate(ws.Cells(linha1, 3).Value)
+            fim1 = CDate(ws.Cells(linha1, 4).Value)
+            On Error GoTo 0
+            
+            If inicio1 = 0 Or fim1 = 0 Then GoTo ProximoI
+            
+            ' Compara com todos os outros vínculos do mesmo cliente
+            For j = i + 1 To ultima
+                If ws.Cells(j, 2).Value = ID_Cliente Then
+                    linha2 = j
+                    
+                    ' Valida datas do vínculo 2
+                    On Error Resume Next
+                    inicio2 = CDate(ws.Cells(linha2, 3).Value)
+                    fim2 = CDate(ws.Cells(linha2, 4).Value)
+                    On Error GoTo 0
+                    
+                    If inicio2 = 0 Or fim2 = 0 Then GoTo ProximoJ
+                    
+                    ' Verifica sobreposição: há concomitância se um período começa antes do outro terminar
+                    If (inicio1 <= fim2) And (inicio2 <= fim1) Then
+                        ' Marca ambos os vínculos como concomitantes
+                        ws.Cells(linha1, 11).Value = True
+                        ws.Cells(linha2, 11).Value = True
+                    End If
+                    
+ProximoJ:
+                End If
+            Next j
+            
+ProximoI:
+        End If
+    Next i
+    
