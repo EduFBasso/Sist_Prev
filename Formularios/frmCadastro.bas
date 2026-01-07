@@ -1,4 +1,6 @@
-
+' ================================================================
+' frmCadastro - Formulário de cadastro de clientes
+' ================================================================
 
 Private Sub UserForm_Initialize()
 
@@ -52,6 +54,12 @@ Private Sub UserForm_Initialize()
 
     ' ID só é preenchido quando chamamos CarregarCliente
     Me.txtID.Value = ""
+
+    ' Idade apenas leitura
+    On Error Resume Next
+    Me.txtIdade.Value = ""
+    Me.txtIdade.Locked = True
+    On Error GoTo 0
 
 End Sub
 
@@ -107,10 +115,27 @@ Private Sub LimparFormulario()
     ' Vínculos
     Me.lstVinculos.Clear
 
+    On Error Resume Next
+    Me.txtIdade.Value = ""
+    On Error GoTo 0
+
 End Sub
 
 Public Sub NovoCliente()
     Call LimparFormulario
+End Sub
+
+Private Sub txtNascimento_Change()
+
+    On Error GoTo Fim
+
+    If IsDate(Me.txtNascimento.Value) Then
+        Me.txtIdade.Value = CalcularIdade(CDate(Me.txtNascimento.Value)) & " anos"
+    Else
+        Me.txtIdade.Value = ""
+    End If
+
+Fim:
 End Sub
 
 Private Sub cmdNovoVinculo_Click()
@@ -191,29 +216,6 @@ Private Sub cmdSalvar_Click()
     Call SalvarCliente(dados)
 
     MsgBox "Registro salvo com sucesso!", vbInformation
-
-End Sub
-
-Private Sub cmdImportarCNIS_Click()
-
-    Dim caminho As Variant
-    Dim idCli As Long
-
-    If Trim(Me.txtID.Value) = "" Then
-        MsgBox "Carregue ou salve o cliente antes de importar vínculos.", vbExclamation
-        Exit Sub
-    End If
-
-    idCli = CLng(Me.txtID.Value)
-
-    caminho = Application.GetOpenFilename("Arquivos CSV (*.csv),*.csv", , _
-                                          "Selecione o arquivo de vínculos do CNIS")
-
-    If caminho = False Then Exit Sub
-
-    Call ImportarVinculosDeCSV(CStr(caminho), idCli)
-
-    Call CarregarVinculosCliente(idCli)
 
 End Sub
 

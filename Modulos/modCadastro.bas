@@ -50,6 +50,15 @@ Sub SalvarCliente(dados As Collection)
     ws.Cells(linha, 28).Value = dados("Complementar")
     ws.Cells(linha, 29).Value = dados("Observacoes")
 
+    ' Idade calculada (opcional - última coluna livre)
+    On Error Resume Next
+    If IsDate(dados("Nascimento")) Then
+        ws.Cells(linha, 30).Value = CalcularIdade(CDate(dados("Nascimento")))
+    Else
+        ws.Cells(linha, 30).Value = ""
+    End If
+    On Error GoTo 0
+
 End Sub
 
 ' ===========================================================================================================
@@ -101,6 +110,13 @@ Sub CarregarCliente(ID As Long)
     frmCadastro.txtRG.Value = ws.Cells(linha, 5).Value
     frmCadastro.txtOrgao.Value = ws.Cells(linha, 6).Value
     frmCadastro.txtNascimento.Value = ws.Cells(linha, 7).Value
+    On Error Resume Next
+    If IsDate(ws.Cells(linha, 7).Value) Then
+        frmCadastro.txtIdade.Value = CalcularIdade(CDate(ws.Cells(linha, 7).Value)) & " anos"
+    Else
+        frmCadastro.txtIdade.Value = ""
+    End If
+    On Error GoTo 0
     frmCadastro.cboSexo.Value = ws.Cells(linha, 8).Value
     frmCadastro.cboEstadoCivil.Value = ws.Cells(linha, 9).Value
 
