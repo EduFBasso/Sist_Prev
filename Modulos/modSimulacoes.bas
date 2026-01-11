@@ -92,6 +92,20 @@ End Function
 
 Function SimularAposentadoria(ID_Cliente As Long, regra As String) As Collection
     ' Usa GetParametro para aplicar regras
+    Select Case UCase(regra)
+        Case "TEMPO"
+            Set SimularAposentadoria = RegraTempoContribuicao(ID_Cliente)
+        Case "IDADE"
+            Set SimularAposentadoria = RegraIdade(ID_Cliente)
+        Case "PONTOS"
+            Set SimularAposentadoria = RegraPontos(ID_Cliente)
+        Case "PEDAGIO50"
+            Set SimularAposentadoria = RegraPedagio50(ID_Cliente)
+        Case "PEDAGIO100"
+            Set SimularAposentadoria = RegraPedagio100(ID_Cliente)
+        Case Else
+            Set SimularAposentadoria = Nothing
+    End Select
 End Function
 
 Function CalcularIdade(nascimento As Date) As Long
@@ -221,5 +235,526 @@ Function RegraTempoContribuicao(ID_Cliente As Long) As Collection
 
     Set RegraTempoContribuicao = resultado
 
+End Function
+
+Function RegraIdade(ID_Cliente As Long) As Collection
+    ' Aposentadoria por Idade (regra atual pós-reforma)
+    Dim resultado As New Collection
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim sexo As String
+    Dim nascimento As Date
+    Dim idadeAtual As Long
+    Dim idadeMinima As Long
+    Dim tempoTotal As Double
+    Dim carenciaMinima As Long
+    Dim falta As Double
+    Dim dataPrevista As Date
+    Dim idadeProj As Long
+    
+    Set ws = Sheets("Cadastro_Clientes")
+    linha = BuscarLinhaCliente(ID_Cliente)
+    
+    sexo = ws.Cells(linha, 8).Value
+    nascimento = CDate(ws.Cells(linha, 7).Value)
+    idadeAtual = CalcularIdade(nascimento)
+    tempoTotal = CalcularTempo(ID_Cliente)
+    
+    ' Buscar parâmetros
+    carenciaMinima = Nz(GetParametro("Carencia_Minima")) / 12  ' Converte meses em anos
+    If UCase(sexo) = "M" Or UCase(sexo) = "MASCULINO" Then
+        idadeMinima = Nz(GetParametro("Idade_Minima_Homem"))
+    Else
+        idadeMinima = Nz(GetParametro("Idade_Minima_Mulher"))
+    End If
+    
+    ' Verifica se já tem direito (idade mínima + carência mínima)
+    If idadeAtual >= idadeMinima And tempoTotal >= carenciaMinima Then
+        resultado.Add "Sim", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add 0, "Falta"
+        resultado.Add Date, "DataPrevista"
+        resultado.Add idadeAtual, "IdadeProjetada"
+        resultado.Add "Direito adquirido por idade.", "Obs"
+    Else
+        ' Calcula o que falta
+        Dim idadeFalta As Long
+        Dim tempoFalta As Double
+        
+        idadeFalta = Application.WorksheetFunction.Max(0, idadeMinima - idadeAtual)
+        tempoFalta = Application.WorksheetFunction.Max(0, carenciaMinima - tempoTotal)
+        
+        ' A falta é o maior dos dois
+        falta = Application.WorksheetFunction.Max(idadeFalta, tempoFalta)
+        
+        dataPrevista = DateAdd("yyyy", falta, Date)
+        idadeProj = idadeAtual + falta
+        
+        resultado.Add "Não", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add falta, "Falta"
+        resultado.Add dataPrevista, "DataPrevista"
+        resultado.Add idadeProj, "IdadeProjetada"
+        
+        If idadeFalta > 0 And tempoFalta > 0 Then
+            resultado.Add "Falta idade e tempo de contribuição.", "Obs"
+        ElseIf idadeFalta > 0 Then
+            resultado.Add "Falta idade mínima.", "Obs"
+        Else
+            resultado.Add "Falta carência mínima.", "Obs"
+        End If
+    End If
+    
+    Set RegraIdade = resultado
+End Function
+
+Function RegraPontos(ID_Cliente As Long) As Collection
+    ' Regra de Pontos (Idade + Tempo de Contribuição)
+    Dim resultado As New Collection
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim sexo As String
+    Dim nascimento As Date
+    Dim idadeAtual As Long
+    Dim tempoTotal As Double
+    Dim pontosAtuais As Double
+    Dim pontosNecessarios As Long
+    Dim tempoNecessario As Long
+    Dim falta As Double
+    Dim dataPrevista As Date
+    Dim idadeProj As Long
+    
+    Set ws = Sheets("Cadastro_Clientes")
+    linha = BuscarLinhaCliente(ID_Cliente)
+    
+    sexo = ws.Cells(linha, 8).Value
+    nascimento = CDate(ws.Cells(linha, 7).Value)
+    idadeAtual = CalcularIdade(nascimento)
+    tempoTotal = CalcularTempo(ID_Cliente)
+    
+    ' Pontos atuais = idade + tempo
+    pontosAtuais = idadeAtual + tempoTotal
+    
+    ' Buscar parâmetros
+    If UCase(sexo) = "M" Or UCase(sexo) = "MASCULINO" Then
+        pontosNecessarios = Nz(GetParametro("Pontos_Homem"))
+        tempoNecessario = 35
+    Else
+        pontosNecessarios = Nz(GetParametro("Pontos_Mulher"))
+        tempoNecessario = 30
+    End If
+    
+    ' Verifica se já tem direito (pontos + tempo mínimo)
+    If pontosAtuais >= pontosNecessarios And tempoTotal >= tempoNecessario Then
+        resultado.Add "Sim", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add pontosAtuais, "Pontos"
+        resultado.Add 0, "Falta"
+        resultado.Add Date, "DataPrevista"
+        resultado.Add idadeAtual, "IdadeProjetada"
+        resultado.Add "Direito adquirido pela regra de pontos.", "Obs"
+    Else
+        ' Calcula o que falta
+        Dim pontosFalta As Double
+        Dim tempoFalta As Double
+        
+        pontosFalta = Application.WorksheetFunction.Max(0, pontosNecessarios - pontosAtuais)
+        tempoFalta = Application.WorksheetFunction.Max(0, tempoNecessario - tempoTotal)
+        
+        ' A cada ano trabalhado ganha 2 pontos (1 de idade + 1 de tempo)
+        ' Mas precisa atender os dois critérios
+        falta = Application.WorksheetFunction.Max(pontosFalta / 2, tempoFalta)
+        
+        dataPrevista = DateAdd("yyyy", falta, Date)
+        idadeProj = idadeAtual + falta
+        
+        resultado.Add "Não", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add pontosAtuais, "Pontos"
+        resultado.Add falta, "Falta"
+        resultado.Add dataPrevista, "DataPrevista"
+        resultado.Add idadeProj, "IdadeProjetada"
+        
+        If pontosFalta > 0 And tempoFalta > 0 Then
+            resultado.Add "Falta pontos e tempo de contribuição mínimo.", "Obs"
+        ElseIf pontosFalta > 0 Then
+            resultado.Add "Falta pontuação.", "Obs"
+        Else
+            resultado.Add "Falta tempo de contribuição mínimo.", "Obs"
+        End If
+    End If
+    
+    Set RegraPontos = resultado
+End Function
+
+Function RegraPedagio50(ID_Cliente As Long) As Collection
+    ' Regra do Pedágio 50% (para quem estava a até 2 anos da aposentadoria na reforma)
+    Dim resultado As New Collection
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim sexo As String
+    Dim nascimento As Date
+    Dim idadeAtual As Long
+    Dim tempoTotal As Double
+    Dim tempoNecessario As Long
+    Dim dataReforma As Date
+    Dim tempoNaReforma As Double
+    Dim tempoFaltava As Double
+    Dim pedagio As Double
+    Dim tempoTotalNecessario As Double
+    Dim falta As Double
+    Dim dataPrevista As Date
+    Dim idadeProj As Long
+    
+    Set ws = Sheets("Cadastro_Clientes")
+    linha = BuscarLinhaCliente(ID_Cliente)
+    
+    sexo = ws.Cells(linha, 8).Value
+    nascimento = CDate(ws.Cells(linha, 7).Value)
+    idadeAtual = CalcularIdade(nascimento)
+    tempoTotal = CalcularTempo(ID_Cliente)
+    
+    ' Buscar parâmetros
+    dataReforma = CDate(GetParametro("Data_Reforma"))
+    If UCase(sexo) = "M" Or UCase(sexo) = "MASCULINO" Then
+        tempoNecessario = 35
+    Else
+        tempoNecessario = 30
+    End If
+    
+    ' Calcular quanto tempo tinha na data da reforma (estimativa)
+    ' Simplificação: considera que trabalhou continuamente
+    Dim anosDesdeReforma As Double
+    anosDesdeReforma = DateDiff("d", dataReforma, Date) / 365.25
+    tempoNaReforma = tempoTotal - anosDesdeReforma
+    If tempoNaReforma < 0 Then tempoNaReforma = 0
+    
+    ' Verificar elegibilidade: faltavam até 2 anos na reforma?
+    tempoFaltava = tempoNecessario - tempoNaReforma
+    
+    If tempoFaltava > 2 Then
+        resultado.Add "Não", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add 0, "Falta"
+        resultado.Add Date, "DataPrevista"
+        resultado.Add idadeAtual, "IdadeProjetada"
+        resultado.Add "Não elegível: faltavam mais de 2 anos na reforma.", "Obs"
+        Set RegraPedagio50 = resultado
+        Exit Function
+    End If
+    
+    ' Calcular pedágio: 50% do tempo que faltava
+    pedagio = tempoFaltava * 0.5
+    tempoTotalNecessario = tempoNecessario + pedagio
+    
+    ' Verifica se já tem direito
+    If tempoTotal >= tempoTotalNecessario Then
+        resultado.Add "Sim", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add 0, "Falta"
+        resultado.Add Date, "DataPrevista"
+        resultado.Add idadeAtual, "IdadeProjetada"
+        resultado.Add "Direito adquirido pela regra do pedágio 50%.", "Obs"
+    Else
+        falta = tempoTotalNecessario - tempoTotal
+        dataPrevista = DateAdd("yyyy", falta, Date)
+        idadeProj = idadeAtual + falta
+        
+        resultado.Add "Não", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add falta, "Falta"
+        resultado.Add dataPrevista, "DataPrevista"
+        resultado.Add idadeProj, "IdadeProjetada"
+        resultado.Add "Falta completar tempo + pedágio 50%.", "Obs"
+    End If
+    
+    Set RegraPedagio50 = resultado
+End Function
+
+Function RegraPedagio100(ID_Cliente As Long) As Collection
+    ' Regra do Pedágio 100% (sem idade mínima, mas pedágio de 100%)
+    Dim resultado As New Collection
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim sexo As String
+    Dim nascimento As Date
+    Dim idadeAtual As Long
+    Dim tempoTotal As Double
+    Dim tempoNecessario As Long
+    Dim dataReforma As Date
+    Dim tempoNaReforma As Double
+    Dim tempoFaltava As Double
+    Dim pedagio As Double
+    Dim tempoTotalNecessario As Double
+    Dim falta As Double
+    Dim dataPrevista As Date
+    Dim idadeProj As Long
+    
+    Set ws = Sheets("Cadastro_Clientes")
+    linha = BuscarLinhaCliente(ID_Cliente)
+    
+    sexo = ws.Cells(linha, 8).Value
+    nascimento = CDate(ws.Cells(linha, 7).Value)
+    idadeAtual = CalcularIdade(nascimento)
+    tempoTotal = CalcularTempo(ID_Cliente)
+    
+    ' Buscar parâmetros
+    dataReforma = CDate(GetParametro("Data_Reforma"))
+    If UCase(sexo) = "M" Or UCase(sexo) = "MASCULINO" Then
+        tempoNecessario = 35
+    Else
+        tempoNecessario = 30
+    End If
+    
+    ' Calcular quanto tempo tinha na data da reforma
+    Dim anosDesdeReforma As Double
+    anosDesdeReforma = DateDiff("d", dataReforma, Date) / 365.25
+    tempoNaReforma = tempoTotal - anosDesdeReforma
+    If tempoNaReforma < 0 Then tempoNaReforma = 0
+    
+    ' Calcular tempo que faltava na reforma
+    tempoFaltava = tempoNecessario - tempoNaReforma
+    If tempoFaltava < 0 Then tempoFaltava = 0
+    
+    ' Calcular pedágio: 100% do tempo que faltava
+    pedagio = tempoFaltava
+    tempoTotalNecessario = tempoNecessario + pedagio
+    
+    ' Verifica se já tem direito
+    If tempoTotal >= tempoTotalNecessario Then
+        resultado.Add "Sim", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add 0, "Falta"
+        resultado.Add Date, "DataPrevista"
+        resultado.Add idadeAtual, "IdadeProjetada"
+        resultado.Add "Direito adquirido pela regra do pedágio 100%.", "Obs"
+    Else
+        falta = tempoTotalNecessario - tempoTotal
+        dataPrevista = DateAdd("yyyy", falta, Date)
+        idadeProj = idadeAtual + falta
+        
+        resultado.Add "Não", "Direito"
+        resultado.Add tempoTotal, "TempoTotal"
+        resultado.Add falta, "Falta"
+        resultado.Add dataPrevista, "DataPrevista"
+        resultado.Add idadeProj, "IdadeProjetada"
+        resultado.Add "Falta completar tempo + pedágio 100%.", "Obs"
+    End If
+    
+    Set RegraPedagio100 = resultado
+End Function
+
+Function CalcularValorBeneficio(ID_Cliente As Long, tempoContribuicao As Double) As Double
+    ' Calcula o valor estimado do benefício com base no tempo de contribuição
+    ' Fórmula pós-reforma: 60% + 2% por ano acima de 15 anos (mulher) ou 20 anos (homem)
+    
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim sexo As String
+    Dim coefInicial As Double
+    Dim percAcrescimo As Double
+    Dim tempoBase As Double
+    Dim anosExcedentes As Double
+    Dim coefTotal As Double
+    Dim salarioMinimo As Double
+    Dim tetoINSS As Double
+    Dim mediaSalarialEstimada As Double
+    Dim valorBeneficio As Double
+    
+    Set ws = Sheets("Cadastro_Clientes")
+    linha = BuscarLinhaCliente(ID_Cliente)
+    sexo = ws.Cells(linha, 8).Value
+    
+    ' Buscar parâmetros
+    coefInicial = Nz(GetParametro("Coeficiente_Inicial"))
+    percAcrescimo = Nz(GetParametro("Percentual_Acrescimo_Ano"))
+    salarioMinimo = Nz(GetParametro("Salario_Minimo"))
+    tetoINSS = Nz(GetParametro("Teto_INSS"))
+    
+    ' Define tempo base conforme sexo
+    If UCase(sexo) = "M" Or UCase(sexo) = "MASCULINO" Then
+        tempoBase = 20
+    Else
+        tempoBase = 15
+    End If
+    
+    ' Calcula anos excedentes
+    anosExcedentes = Application.WorksheetFunction.Max(0, tempoContribuicao - tempoBase)
+    
+    ' Calcula coeficiente total
+    coefTotal = coefInicial + (anosExcedentes * percAcrescimo)
+    If coefTotal > 100 Then coefTotal = 100
+    
+    ' Estimar média salarial (simplificação: usar teto como referência)
+    ' Em implementação real, deveria calcular a média dos 80% maiores salários
+    mediaSalarialEstimada = tetoINSS * 0.6  ' Estimativa conservadora
+    
+    ' Calcular valor do benefício
+    valorBeneficio = mediaSalarialEstimada * (coefTotal / 100)
+    
+    ' Aplicar limites (não pode ser menor que salário mínimo nem maior que teto)
+    If valorBeneficio < salarioMinimo Then valorBeneficio = salarioMinimo
+    If valorBeneficio > tetoINSS Then valorBeneficio = tetoINSS
+    
+    CalcularValorBeneficio = valorBeneficio
+End Function
+
+Function VerificarElegibilidadeTransicao(ID_Cliente As Long) As String
+    ' Verifica se o cliente pode usar regras de transição
+    ' Retorna: "TODAS", "PEDAGIO50", "PEDAGIO100", "NENHUMA"
+    
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim sexo As String
+    Dim nascimento As Date
+    Dim dataReforma As Date
+    Dim tempoNaReforma As Double
+    Dim tempoNecessario As Long
+    Dim tempoFaltava As Double
+    
+    Set ws = Sheets("Cadastro_Clientes")
+    linha = BuscarLinhaCliente(ID_Cliente)
+    sexo = ws.Cells(linha, 8).Value
+    nascimento = CDate(ws.Cells(linha, 7).Value)
+    
+    ' Buscar data da reforma
+    dataReforma = CDate(GetParametro("Data_Reforma"))
+    
+    ' Calcular tempo de contribuição na data da reforma
+    Dim tempoTotal As Double
+    tempoTotal = CalcularTempo(ID_Cliente)
+    
+    Dim anosDesdeReforma As Double
+    anosDesdeReforma = DateDiff("d", dataReforma, Date) / 365.25
+    tempoNaReforma = tempoTotal - anosDesdeReforma
+    If tempoNaReforma < 0 Then tempoNaReforma = 0
+    
+    ' Define tempo necessário conforme sexo
+    If UCase(sexo) = "M" Or UCase(sexo) = "MASCULINO" Then
+        tempoNecessario = 35
+    Else
+        tempoNecessario = 30
+    End If
+    
+    ' Calcular quanto tempo faltava na reforma
+    tempoFaltava = tempoNecessario - tempoNaReforma
+    
+    ' Determinar elegibilidade
+    If tempoFaltava <= 0 Then
+        ' Já tinha direito adquirido na reforma
+        VerificarElegibilidadeTransicao = "TODAS"
+    ElseIf tempoFaltava <= 2 Then
+        ' Elegível para ambos os pedágios
+        VerificarElegibilidadeTransicao = "TODAS"
+    ElseIf tempoFaltava > 2 Then
+        ' Apenas pedágio 100%
+        VerificarElegibilidadeTransicao = "PEDAGIO100"
+    Else
+        ' Não elegível para transições
+        VerificarElegibilidadeTransicao = "NENHUMA"
+    End If
+End Function
+
+Function AnalisarMelhorRegra(ID_Cliente As Long) As Collection
+    ' Analisa todas as regras e retorna a melhor opção (menor tempo faltante)
+    
+    Dim resultado As New Collection
+    Dim melhorRegra As String
+    Dim menorFalta As Double
+    Dim regras As Variant
+    Dim i As Long
+    Dim r As Collection
+    Dim faltaAtual As Double
+    Dim elegibilidade As String
+    
+    menorFalta = 9999
+    melhorRegra = ""
+    
+    ' Lista de regras a verificar
+    elegibilidade = VerificarElegibilidadeTransicao(ID_Cliente)
+    
+    ' Testar regra de tempo (direito adquirido)
+    Set r = RegraTempoContribuicao(ID_Cliente)
+    If r("Direito") = "Sim" Then
+        resultado.Add "TEMPO", "MelhorRegra"
+        resultado.Add r, "Resultado"
+        Set AnalisarMelhorRegra = resultado
+        Exit Function
+    End If
+    faltaAtual = r("Falta")
+    If faltaAtual < menorFalta Then
+        menorFalta = faltaAtual
+        melhorRegra = "TEMPO"
+        Set resultado = r
+    End If
+    
+    ' Testar regra de idade
+    Set r = RegraIdade(ID_Cliente)
+    If r("Direito") = "Sim" Then
+        resultado.Add "IDADE", "MelhorRegra"
+        resultado.Add r, "Resultado"
+        Set AnalisarMelhorRegra = resultado
+        Exit Function
+    End If
+    faltaAtual = r("Falta")
+    If faltaAtual < menorFalta Then
+        menorFalta = faltaAtual
+        melhorRegra = "IDADE"
+        Set resultado = r
+    End If
+    
+    ' Testar regra de pontos
+    Set r = RegraPontos(ID_Cliente)
+    If r("Direito") = "Sim" Then
+        resultado.Add "PONTOS", "MelhorRegra"
+        resultado.Add r, "Resultado"
+        Set AnalisarMelhorRegra = resultado
+        Exit Function
+    End If
+    faltaAtual = r("Falta")
+    If faltaAtual < menorFalta Then
+        menorFalta = faltaAtual
+        melhorRegra = "PONTOS"
+        Set resultado = r
+    End If
+    
+    ' Testar pedágio 50% (se elegível)
+    If elegibilidade = "TODAS" Then
+        Set r = RegraPedagio50(ID_Cliente)
+        If r("Direito") = "Sim" Then
+            resultado.Add "PEDAGIO50", "MelhorRegra"
+            resultado.Add r, "Resultado"
+            Set AnalisarMelhorRegra = resultado
+            Exit Function
+        End If
+        faltaAtual = r("Falta")
+        If faltaAtual < menorFalta Then
+            menorFalta = faltaAtual
+            melhorRegra = "PEDAGIO50"
+            Set resultado = r
+        End If
+    End If
+    
+    ' Testar pedágio 100% (se elegível)
+    If elegibilidade = "TODAS" Or elegibilidade = "PEDAGIO100" Then
+        Set r = RegraPedagio100(ID_Cliente)
+        If r("Direito") = "Sim" Then
+            resultado.Add "PEDAGIO100", "MelhorRegra"
+            resultado.Add r, "Resultado"
+            Set AnalisarMelhorRegra = resultado
+            Exit Function
+        End If
+        faltaAtual = r("Falta")
+        If faltaAtual < menorFalta Then
+            menorFalta = faltaAtual
+            melhorRegra = "PEDAGIO100"
+            Set resultado = r
+        End If
+    End If
+    
+    ' Adicionar identificação da melhor regra
+    resultado.Add melhorRegra, "MelhorRegra"
+    
+    Set AnalisarMelhorRegra = resultado
 End Function
 

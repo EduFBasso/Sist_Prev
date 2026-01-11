@@ -255,14 +255,14 @@ Function ColetarDados() As Collection
     ' Tipo de segurado
     c.Add Me.cboTipoSegurado.Value, "TipoSegurado"
 
-    ' Condições especiais
-    c.Add Me.chkPossuiEspecial.Value, "PossuiEspecial"
-    c.Add Me.chkPossuiRural.Value, "PossuiRural"
-    c.Add Me.chkPossuiMilitar.Value, "PossuiMilitar"
-    c.Add Me.chkPossuiExterior.Value, "PossuiExterior"
-    c.Add Me.chkPossuiConcomitante.Value, "PossuiConcomitante"
-    c.Add Me.chkPossuiAtraso.Value, "PossuiAtraso"
-    c.Add Me.chkPossuiComplementar.Value, "PossuiComplementar"
+    ' Condições especiais (lidos dos checkboxes, mas são indicadores automáticos)
+    c.Add Me.chkPossuiEspecial.Value, "Especial"
+    c.Add Me.chkPossuiRural.Value, "Rural"
+    c.Add Me.chkPossuiMilitar.Value, "Militar"
+    c.Add Me.chkPossuiExterior.Value, "Exterior"
+    c.Add Me.chkPossuiConcomitante.Value, "Concomitante"
+    c.Add Me.chkPossuiAtraso.Value, "Atraso"
+    c.Add Me.chkPossuiComplementar.Value, "Complementar"
 
     ' Observações
     c.Add Me.txtObservacoes.Value, "Observacoes"
@@ -308,5 +308,19 @@ End Sub
 
 Private Sub cmdSimular_Click()
 
-    ' Falta criar o código para iniciar a simulação no frmSimulacoes
+    Dim ID_Cliente As Long
+    
+    ' Verifica se há um cliente carregado
+    If Me.txtID.Value = "" Then
+        MsgBox "Carregue ou salve um cliente antes de simular.", vbExclamation
+        Exit Sub
+    End If
+    
+    ID_Cliente = CLng(Me.txtID.Value)
+    
+    ' Abre o formulário de simulações e passa o ID do cliente
+    frmSimulacoes.Tag = CStr(ID_Cliente)
+    Call frmSimulacoes.PreencherDadosIniciais(ID_Cliente)
+    frmSimulacoes.Show
+
 End Sub

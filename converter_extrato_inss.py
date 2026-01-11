@@ -391,6 +391,208 @@ def salvar_cabecalho_csv(dados: dict, caminho_csv: str) -> None:
         ])
 
 
+def extrair_remuneracoes_texto(caminho_pdf: str) -> list[dict]:
+    """Extrai tabelas de remuneração de cada vínculo do CNIS.
+    
+    Para cada vínculo, procura a seção "Remunerações" e extrai as linhas
+    com formato: Competência (mm/aaaa), Remuneração (valor), Indicadores.
+    
+    Retorna uma lista de dicionários com:
+    - seq: Sequência do vínculo
+    - codigo_emp: CNPJ da empresa
+    - competencia: mm/aaaa
+    - remuneracao: valor
+    - indicadores: texto dos indicadores (se houver)
+    - pagina: número da página
+    """
+    
+    pdf_path = Path(caminho_pdf)
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"PDF não encontrado: {pdf_path}")
+    
+    registros_remuneracao = []
+    
+    with pdfplumber.open(pdf_path) as pdf:
+        for pagina_idx, pagina in enumerate(pdf.pages, start=1):
+            texto = pagina.extract_text() or ""
+            
+            # Procura blocos que começam com "Matrícula do Tipo Filiado"
+            # e vão até o próximo vínculo ou fim da página
+            marcador_vinculo = "Matrícula do Tipo Filiado"
+            marcador_remuneracao = "Remunerações"
+            
+            pos = 0
+            while True:
+                inicio_vinculo = texto.find(marcador_vinculo, pos)
+                if inicio_vinculo == -1:
+                    break
+                
+                # Encontrar próximo vínculo ou fim do texto
+                proximo_vinculo = texto.find(marcador_vinculo, inicio_vinculo + len(marcador_vinculo))
+                if proximo_vinculo == -1:
+                    fim_bloco = len(texto)
+                else:
+                    fim_bloco = proximo_vinculo
+                
+                bloco_vinculo = texto[inicio_vinculo:fim_bloco]
+                
+                # Extrair Seq e Código Emp deste bloco
+                seq_match = re.search(r"Seq\.\s+.*?\n(\d+)", bloco_vinculo)
+                codigo_match = re.search(r"Código Emp\.\s+.*?\n\d+\s+[0-9.\-]+\s+([0-9./\-]+)", bloco_vinculo)
+                
+                seq = seq_match.group(1) if seq_match else ""
+                codigo_emp = codigo_match.group(1) if codigo_match else ""
+                
+                # Procurar seção de remunerações neste bloco
+                inicio_remun = bloco_vinculo.find(marcador_remuneracao)
+                if inicio_remun != -1:
+                    secao_remun = bloco_vinculo[inicio_remun:]
+                    
+                    # Extrair linhas de remuneração
+                    # Formato esperado: 
+                    # Competência Remuneração Indicadores
+                    # 01/1995 286,25 (vazio ou texto)
+                    # 02/1995 286,25 (vazio ou texto)
+                    
+                    linhas = secao_remun.split('\n')
+                    
+                    # Pular cabeçalho (primeira linha com "Remunerações" e linha de títulos)
+                    i = 0
+                    while i < len(linhas) and not re.search(r'\d{2}/\d{4}', linhas[i]):
+                        i += 1
+                    
+                    # Processar linhas de dados
+                    while i < len(linhas):
+                        linha = linhas[i].strip()
+                        
+                        # Parar se encontrar início de novo bloco ou seção
+                        if not linha or "Matrícula" in linha or "Vínculos" in linha:
+                            break
+                        
+                        # Tentar extrair: competência (mm/aaaa), valor, indicadores
+                        # Padrão: "01/1995 286,25" ou "01/1995 286,25 texto_indicador"
+                        match = re.match(r'(\d{2}/\d{4})\s+([\d.,]+)\s*(.*)', linha)
+                        
+                        if match:
+                            competencia = match.group(1)
+                            remuneracao = match.group(2).replace('.', '').replace(',', '.')  # Converte formato BR para numérico
+                            indicadores = match.group(3).strip()
+                            
+                            registros_remuneracao.append({
+                                "pagina": pagina_idx,
+                                "seq": seq,
+                                "codigo_emp": codigo_emp,
+                                "competencia": competencia,
+                                "remuneracao": remuneracao,
+                                "indicadores": indicadores,
+                            })
+                        
+                        i += 1
+                
+                pos = fim_bloco
+    
+    return registros_remuneracao
+
+
+def extrair_remuneracoes_tabelas(linhas_saida) -> list[dict]:
+    """Extrai remunerações das tabelas extraídas do PDF.
+    
+    Complementa a extração por texto, processando as tabelas estruturadas.
+    """
+    
+    registros = []
+    seq_atual = ""
+    codigo_emp_atual = ""
+    
+    for linha in linhas_saida:
+        pagina_idx, tabela_idx, *cols = linha
+        
+        # Detectar se é linha de vínculo (para pegar seq e código)
+        texto_linha = " ".join(str(c) for c in cols)
+        
+        if "Matrícula do Tipo Filiado" in texto_linha:
+            # Tentar extrair seq e código emp
+            seq_match = re.search(r'\b(\d+)\b', texto_linha)
+            codigo_match = re.search(r'([0-9]{2}\.[0-9]{3}\.[0-9]{3}/[0-9]{4}-[0-9]{2})', texto_linha)
+            
+            if seq_match:
+                seq_atual = seq_match.group(1)
+            if codigo_match:
+                codigo_emp_atual = codigo_match.group(1)
+        
+        # Detectar linhas de remuneração: devem ter competência (mm/aaaa) e valor
+        for col in cols:
+            col_str = str(col).strip()
+            if re.match(r'\d{2}/\d{4}', col_str):
+                # Possível linha de remuneração
+                # Tentar extrair competência e valor da mesma célula ou células adjacentes
+                match = re.search(r'(\d{2}/\d{4})\s+([\d.,]+)', col_str)
+                
+                if match:
+                    competencia = match.group(1)
+                    remuneracao = match.group(2).replace('.', '').replace(',', '.')
+                    
+                    # Procurar indicadores nas células seguintes
+                    idx = cols.index(col)
+                    indicadores = ""
+                    if idx + 1 < len(cols):
+                        indicadores = str(cols[idx + 1]).strip()
+                    
+                    registros.append({
+                        "pagina": pagina_idx,
+                        "seq": seq_atual,
+                        "codigo_emp": codigo_emp_atual,
+                        "competencia": competencia,
+                        "remuneracao": remuneracao,
+                        "indicadores": indicadores,
+                    })
+    
+    return registros
+
+
+def salvar_remuneracoes_csv(caminho_pdf: str, linhas_saida, caminho_csv: str) -> None:
+    """Gera um CSV com todas as remunerações extraídas por vínculo."""
+    
+    csv_path = Path(caminho_csv)
+    
+    # Extrair remunerações por texto (método principal)
+    remuneracoes_texto = extrair_remuneracoes_texto(caminho_pdf)
+    
+    # Extrair remunerações das tabelas (complementar)
+    remuneracoes_tabelas = extrair_remuneracoes_tabelas(linhas_saida)
+    
+    # Combinar e remover duplicatas
+    todas_remuneracoes = remuneracoes_texto + remuneracoes_tabelas
+    
+    # Deduplica por (seq, codigo_emp, competencia)
+    vistos = set()
+    unicas = []
+    
+    for r in todas_remuneracoes:
+        chave = (r.get("seq", ""), r.get("codigo_emp", ""), r.get("competencia", ""))
+        if chave not in vistos and chave[2]:  # Ignora se não tem competência
+            vistos.add(chave)
+            unicas.append(r)
+    
+    # Ordenar por seq, codigo_emp e competencia
+    unicas.sort(key=lambda x: (x.get("seq", ""), x.get("codigo_emp", ""), x.get("competencia", "")))
+    
+    # Salvar CSV
+    with csv_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(["Pagina", "Seq", "CodigoEmp", "Competencia", "Remuneracao", "Indicadores"])
+        
+        for r in unicas:
+            writer.writerow([
+                r.get("pagina", ""),
+                r.get("seq", ""),
+                r.get("codigo_emp", ""),
+                r.get("competencia", ""),
+                r.get("remuneracao", ""),
+                r.get("indicadores", ""),
+            ])
+
+
 def main(argv=None) -> None:
     if argv is None:
         argv = sys.argv[1:]
@@ -423,11 +625,17 @@ def main(argv=None) -> None:
     vinculos_struct_path = str(pasta / f"{base}_vinculos_estruturado.csv")
     salvar_vinculos_estruturados(linhas_saida, vinculos_struct_path, dados_cab, pdf_in)
 
+    # CSV com as remunerações de cada vínculo
+    remuneracoes_path = str(pasta / f"{base}_remuneracoes.csv")
+    salvar_remuneracoes_csv(pdf_in, linhas_saida, remuneracoes_path)
+
     print(f"Arquivo CSV bruto gerado em: {csv_out}")
     print(f"Arquivo de vínculos (texto bruto) gerado em: {vinculos_brutos_path}")
     print(f"Arquivo de vínculos estruturados gerado em: {vinculos_struct_path}")
     print(f"Arquivo de dados do cliente (cabeçalho) gerado em: {cabecalho_path}")
+    print(f"Arquivo de remunerações gerado em: {remuneracoes_path}")
 
 
 if __name__ == "__main__":
     main()
+
