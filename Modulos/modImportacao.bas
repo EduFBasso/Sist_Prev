@@ -4,6 +4,236 @@
 
 Option Explicit
 
+' ============================================
+' IMPORTAÇÃO AUTOMÁTICA - Detecta e importa todos os CSVs relacionados
+' ============================================
+
+Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
+    ' Importa automaticamente todos os arquivos CSV gerados pelo extrator Python
+    ' Pode receber qualquer um dos arquivos CSV gerados (detecta o timestamp e importa todos)
+    ' Se não receber parâmetro, pede ao usuário para selecionar um arquivo
+    
+    Dim caminho As String
+    Dim pasta As String
+    Dim prefixo As String
+    Dim timestamp As String
+    Dim ID_Cliente As Long
+    Dim nomeCliente As String
+    Dim wsCadastro As Worksheet
+    Dim ultima As Long
+    
+    ' Se não foi passado arquivo, pedir para o usuário selecionar
+    If caminhoInicial = "" Then
+        Dim fd As FileDialog
+        Set fd = Application.FileDialog(msoFileDialogFilePicker)
+        
+        With fd
+            .Title = "Selecione um dos arquivos CSV gerados pelo extrator CNIS"
+            .Filters.Clear
+            .Filters.Add "Arquivos CSV", "*.csv"
+            .AllowMultiSelect = False
+            
+            If .Show = -1 Then
+                caminho = .SelectedItems(1)
+            Else
+                Exit Sub ' Usuário cancelou
+            End If
+        End With
+    Else
+        caminho = caminhoInicial
+    End If
+    
+    ' Verificar se o arquivo existe
+    If Len(Dir(caminho)) = 0 Then
+        MsgBox "Arquivo não encontrado: " & caminho, vbExclamation
+        Exit Sub
+    End If
+    
+    ' Extrair pasta e detectar timestamp
+    ' Exemplo: C:\pasta\saida\JOAO_CARLOS\extrato_202....csv
+    '          → pasta = C:\pasta\saida\JOAO_CARLOS\
+    '          → timestamp = 20260112_153946
+    
+    Dim nomeArquivo As String
+    Dim posUltimaBarra As Long
+    Dim separador As String
+    
+    ' Detectar separador (Windows \ ou macOS/Linux /)
+    If InStr(caminho, "\\") > 0 Then
+        separador = "\\"
+        posUltimaBarra = InStrRev(caminho, "\\")
+    Else
+        separador = "/"
+        posUltimaBarra = InStrRev(caminho, "/")
+    End If
+    
+    pasta = Left(caminho, posUltimaBarra)
+    nomeArquivo = Mid(caminho, posUltimaBarra + 1)
+    
+    ' Extrair timestamp do nome do arquivo
+    ' Formato: extrato_AAAAMMDD_HHMMSS_tipo.csv
+    ' Ou formato sem timestamp: saida_tipo.csv
+    
+    Dim partes() As String
+    partes = Split(nomeArquivo, "_")
+    
+    If UBound(partes) >= 2 Then
+        ' Tem timestamp: extrato_20260112_153946_dados_cliente.csv
+        prefixo = partes(0) & "_"
+        timestamp = partes(1) & "_" & partes(2)
+    Else
+        ' Sem timestamp: saida_dados_cliente.csv
+        prefixo = partes(0) & "_"
+        timestamp = ""
+    End If
+    
+    ' Extrair nome da pasta do cliente (última pasta antes do arquivo)
+    Dim posAntepenultimaBarra As Long
+    Dim pastaCliente As String
+    
+    ' Remover separador final se existir
+    Dim pastaSemSeparador As String
+    pastaSemSeparador = Left(pasta, Len(pasta) - 1)
+    
+    ' Encontrar separador anterior para pegar nome da pasta
+    If separador = "\\" Then
+        posAntepenultimaBarra = InStrRev(pastaSemSeparador, "\\")
+    Else
+        posAntepenultimaBarra = InStrRev(pastaSemSeparador, "/")
+    End If
+    
+    If posAntepenultimaBarra > 0 Then
+        pastaCliente = Mid(pastaSemSeparador, posAntepenultimaBarra + 1)
+    Else
+        pastaCliente = "(pasta raiz)"
+    End If
+    
+    ' Construir nomes dos arquivos
+    Dim arquivoDados As String
+    Dim arquivoVinculos As String
+    Dim arquivoRemuneracoes As String
+    
+    If timestamp <> "" Then
+        arquivoDados = pasta & prefixo & timestamp & "_dados_cliente.csv"
+        arquivoVinculos = pasta & prefixo & timestamp & "_vinculos_estruturado.csv"
+        arquivoRemuneracoes = pasta & prefixo & timestamp & "_remuneracoes.csv"
+    Else
+        arquivoDados = pasta & prefixo & "dados_cliente.csv"
+        arquivoVinculos = pasta & prefixo & "vinculos_estruturado.csv"
+        arquivoRemuneracoes = pasta & prefixo & "remuneracoes.csv"
+    End If
+    
+    ' Informar pasta do cliente detectada
+    Debug.Print "📁 Pasta do cliente: " & pastaCliente
+    
+    ' ========================================
+    ' ETAPA 1: Importar dados do cliente
+    ' ========================================
+    
+    If Len(Dir(arquivoDados)) = 0 Then
+        MsgBox "Arquivo de dados do cliente não encontrado: " & vbCrLf & arquivoDados, vbExclamation
+        Exit Sub
+    End If
+    
+    ' Ler dados do CSV
+    Dim fNum As Integer
+    Dim linha As String
+    Dim dadosCSV() As String
+    
+    fNum = FreeFile
+    Open arquivoDados For Input As #fNum
+    
+    ' Pular cabeçalho
+    Line Input #fNum, linha
+    
+    ' Ler dados (deve ter apenas uma linha)
+    If Not EOF(fNum) Then
+        Line Input #fNum, linha
+        dadosCSV = Split(linha, ";")
+    End If
+    
+    Close #fNum
+    
+    If UBound(dadosCSV) < 4 Then
+        MsgBox "Arquivo de dados do cliente com formato inválido.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Dados do CSV: NIT;CPF;Nome;DataNascimento;NomeMae
+    Dim nitCliente As String
+    Dim cpfCliente As String
+    Dim dataNascCliente As String
+    Dim nomeMaeCliente As String
+    
+    nitCliente = Trim(dadosCSV(0))
+    cpfCliente = Trim(dadosCSV(1))
+    nomeCliente = Trim(dadosCSV(2))
+    dataNascCliente = Trim(dadosCSV(3))
+    nomeMaeCliente = Trim(dadosCSV(4))
+    
+    ' Verificar se cliente já existe (por CPF)
+    Set wsCadastro = Sheets("Cadastro_Clientes")
+    ultima = wsCadastro.Cells(wsCadastro.Rows.Count, 1).End(xlUp).Row
+    
+    ID_Cliente = 0
+    Dim i As Long
+    
+    For i = 2 To ultima
+        If Trim(CStr(wsCadastro.Cells(i, 3).Value)) = cpfCliente Then
+            ID_Cliente = wsCadastro.Cells(i, 1).Value
+            Exit For
+        End If
+    Next i
+    
+    ' Se não existir, criar novo cliente
+    If ID_Cliente = 0 Then
+        ID_Cliente = ultima  ' Novo ID
+        
+        wsCadastro.Cells(ultima + 1, 1).Value = ID_Cliente
+        wsCadastro.Cells(ultima + 1, 2).Value = nomeCliente
+        wsCadastro.Cells(ultima + 1, 3).Value = cpfCliente
+        wsCadastro.Cells(ultima + 1, 4).Value = dataNascCliente
+        wsCadastro.Cells(ultima + 1, 5).Value = nomeMaeCliente
+        wsCadastro.Cells(ultima + 1, 6).Value = nitCliente
+        
+        MsgBox "Novo cliente criado: " & nomeCliente & " (ID " & ID_Cliente & ")", vbInformation
+    Else
+        MsgBox "Cliente já existe: " & nomeCliente & " (ID " & ID_Cliente & ")" & vbCrLf & _
+               "Os vínculos e remunerações serão adicionados.", vbInformation
+    End If
+    
+    ' ========================================
+    ' ETAPA 2: Importar vínculos
+    ' ========================================
+    
+    If Len(Dir(arquivoVinculos)) > 0 Then
+        Call ImportarVinculosDeCSV(arquivoVinculos, ID_Cliente)
+    Else
+        MsgBox "Aviso: Arquivo de vínculos não encontrado: " & vbCrLf & arquivoVinculos, vbExclamation
+    End If
+    
+    ' ========================================
+    ' ETAPA 3: Importar remunerações
+    ' ========================================
+    
+    If Len(Dir(arquivoRemuneracoes)) > 0 Then
+        Call ImportarRemuneracoesDeCSV(arquivoRemuneracoes, ID_Cliente)
+    Else
+        MsgBox "Aviso: Arquivo de remunerações não encontrado: " & vbCrLf & arquivoRemuneracoes, vbExclamation
+    End If
+    
+    ' ========================================
+    ' CONCLUÍDO
+    ' ========================================
+    
+    MsgBox "✅ IMPORTAÇÃO CONCLUÍDA!" & vbCrLf & vbCrLf & _
+           "Cliente: " & nomeCliente & vbCrLf & _
+           "ID: " & ID_Cliente & vbCrLf & _
+           "CPF: " & cpfCliente & vbCrLf & vbCrLf & _
+           "Use o formulário de Busca para localizar o cliente.", vbInformation, "Importação CNIS"
+    
+End Sub
+
 Sub ImportarVinculosDeCSV(caminhoCSV As String, ID_Cliente As Long)
 
     Dim fNum As Integer

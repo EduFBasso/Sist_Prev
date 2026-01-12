@@ -2,8 +2,43 @@ import sys
 import csv
 import re
 from pathlib import Path
+from datetime import datetime
 
 import pdfplumber
+
+
+# ============================================
+# CONFIGURAÇÃO DE PASTAS
+# ============================================
+# Estrutura de pastas organizada:
+# - entrada/  -> PDFs CNIS a serem processados
+# - saida/    -> CSVs gerados pelo sistema
+# - info/     -> Documentação e manuais
+# ============================================
+
+def obter_pasta_base():
+    """Retorna o diretório base do script (funciona em .py e .exe)"""
+    if getattr(sys, 'frozen', False):
+        # Se estiver rodando como .exe empacotado
+        return Path(sys.executable).parent
+    else:
+        # Se estiver rodando como .py
+        return Path(__file__).parent
+
+
+def criar_estrutura_pastas():
+    """Cria as pastas necessárias se não existirem"""
+    pasta_base = obter_pasta_base()
+    
+    pasta_entrada = pasta_base / "entrada"
+    pasta_saida = pasta_base / "saida"
+    pasta_info = pasta_base / "info"
+    
+    pasta_entrada.mkdir(exist_ok=True)
+    pasta_saida.mkdir(exist_ok=True)
+    pasta_info.mkdir(exist_ok=True)
+    
+    return pasta_entrada, pasta_saida, pasta_info
 
 
 def extrair_tabelas(caminho_pdf: str):
@@ -792,10 +827,14 @@ def gerar_relatorio_validacao(caminho_pdf: str, caminho_saida: str) -> dict:
         f.write("RELATÓRIO DE VALIDAÇÃO DA EXTRAÇÃO - CNIS\n")
         f.write("=" * 80 + "\n\n")
         
-        f.write(f"📊 RESUMO\n")
-        f.write(f"  • Total de blocos encontrados: {relatorio['total_blocos']}\n")
-        f.write(f"  • Vínculos parseados com sucesso: {relatorio['total_parseados']}\n")
-        f.write(f"  • Blocos NÃO parseados: {relatorio['total_nao_parseados']}\n\n")
+        f.write(f"📄 ARQUIVO: {Path(caminho_pdf).name}\n")
+        f.write(f"📅 DATA: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n")
+        
+        f.write(f"📊 ESTATÍSTICAS GERAIS\n")
+        f.write(f"  • Total de vínculos parseados: {relatorio['total_parseados']}\n")
+        f.write(f"  • Total de blocos não parseados: {relatorio['total_nao_parseados']}\n\n")
+        
+        sequencias_ordenadas = sorted(relatorio['sequencias'])
         
         f.write(f"📋 SEQUÊNCIAS CAPTURADAS ({len(sequencias_ordenadas)})\n")
         if sequencias_ordenadas:
@@ -826,58 +865,159 @@ def gerar_relatorio_validacao(caminho_pdf: str, caminho_saida: str) -> dict:
     return relatorio
 
 
+def processar_pdf(pdf_path: Path, pasta_saida: Path):
+    """Processa um único PDF CNIS e gera todos os CSVs"""
+    
+    print(f"\n{'='*80}")
+    print(f"📄 Processando: {pdf_path.name}")
+    print(f"{'='*80}\n")
+    
+    # Extrair dados do cabeçalho para obter nome do cliente
+    dados_cab = extrair_dados_cabecalho(str(pdf_path))
+    nome_cliente = dados_cab.get("Nome", "SEM_NOME")
+    
+    # Sanitizar nome do cliente para usar como nome de pasta
+    # Remove caracteres inválidos e converte espaços em underscore
+    nome_sanitizado = re.sub(r'[^A-Za-z0-9\s_-]', '', nome_cliente)
+    nome_sanitizado = re.sub(r'\s+', '_', nome_sanitizado).upper()
+    nome_sanitizado = nome_sanitizado[:50]  # Limita tamanho
+    
+    # Criar subpasta do cliente dentro de saida/
+    pasta_cliente = pasta_saida / nome_sanitizado
+    pasta_cliente.mkdir(exist_ok=True)
+    
+    # Nome base para os arquivos de saída (sem extensão)
+    # Adiciona timestamp para evitar sobrescrever arquivos
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_nome = pdf_path.stem
+    base = f"{base_nome}_{timestamp}"
+    
+    print(f"📁 Pasta do cliente: {pasta_cliente.name}\n")
+    
+    try:
+        # Extrair tabelas do PDF
+        linhas_saida, max_cols = extrair_tabelas(str(pdf_path))
+        
+        # Gerar todos os arquivos CSV dentro da pasta do cliente
+        csv_raw = str(pasta_cliente / f"{base}_raw.csv")
+        cabecalho_path = str(pasta_cliente / f"{base}_dados_cliente.csv")
+        vinculos_brutos_path = str(pasta_cliente / f"{base}_vinculos_brutos.csv")
+        vinculos_struct_path = str(pasta_cliente / f"{base}_vinculos_estruturado.csv")
+        remuneracoes_path = str(pasta_cliente / f"{base}_remuneracoes.csv")
+        validacao_path = str(pasta_cliente / f"{base}_validacao.txt")
+        
+        # Salvar arquivos
+        salvar_raw_csv(linhas_saida, max_cols, csv_raw)
+        
+        # dados_cab já foi extraído no início da função
+        salvar_cabecalho_csv(dados_cab, cabecalho_path)
+        
+        salvar_vinculos_brutos(linhas_saida, vinculos_brutos_path)
+        salvar_vinculos_estruturados(linhas_saida, vinculos_struct_path, dados_cab, str(pdf_path))
+        salvar_remuneracoes_csv(str(pdf_path), linhas_saida, remuneracoes_path)
+        
+        relatorio = gerar_relatorio_validacao(str(pdf_path), validacao_path)
+        
+        # Resumo do processamento
+        print(f"\n✅ ARQUIVOS GERADOS:")
+        print(f"   📊 CSV Bruto: {Path(csv_raw).name}")
+        print(f"   👤 Dados Cliente: {Path(cabecalho_path).name}")
+        print(f"   🏢 Vínculos Estruturado: {Path(vinculos_struct_path).name}")
+        print(f"   💰 Remunerações: {Path(remuneracoes_path).name}")
+        print(f"   📋 Relatório Validação: {Path(validacao_path).name}")
+        print(f"\n📈 ESTATÍSTICAS:")
+        print(f"   • {relatorio['total_parseados']} vínculos capturados")
+        print(f"   • Sequências: {', '.join(map(str, relatorio['sequencias']))}")
+        
+        if relatorio['total_nao_parseados'] > 0:
+            print(f"   ⚠️  {relatorio['total_nao_parseados']} blocos não parseados")
+            print(f"   💡 Veja detalhes em: {Path(validacao_path).name}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"\n❌ ERRO ao processar {pdf_path.name}:")
+        print(f"   {str(e)}")
+        return False
+
+
+def listar_pdfs_entrada(pasta_entrada: Path):
+    """Lista todos os PDFs na pasta de entrada"""
+    pdfs = sorted(pasta_entrada.glob("*.pdf"))
+    return [pdf for pdf in pdfs if not pdf.name.startswith('.')]
+
+
 def main(argv=None) -> None:
     if argv is None:
         argv = sys.argv[1:]
+    
+    print("\n" + "="*80)
+    print("🔄 EXTRATOR DE DADOS DO CNIS - INSS")
+    print("="*80)
+    
+    # Criar estrutura de pastas
+    pasta_entrada, pasta_saida, pasta_info = criar_estrutura_pastas()
+    
+    print(f"\n📁 Estrutura de pastas:")
+    print(f"   • Entrada: {pasta_entrada.relative_to(obter_pasta_base())}/")
+    print(f"   • Saída: {pasta_saida.relative_to(obter_pasta_base())}/")
+    print(f"   • Info: {pasta_info.relative_to(obter_pasta_base())}/")
+    
+    # Modo 1: Argumentos de linha de comando (compatibilidade)
+    if len(argv) >= 1:
+        pdf_in = Path(argv[0])
+        
+        if not pdf_in.exists():
+            # Tentar na pasta de entrada
+            pdf_in = pasta_entrada / pdf_in.name
+            
+            if not pdf_in.exists():
+                print(f"\n❌ ERRO: PDF não encontrado: {argv[0]}")
+                print(f"   Coloque o PDF na pasta: {pasta_entrada}/")
+                sys.exit(1)
+        
+        print(f"\n🔍 Modo: Arquivo especificado")
+        processar_pdf(pdf_in, pasta_saida)
+    
+    # Modo 2: Processar todos os PDFs da pasta entrada/
+    else:
+        pdfs = listar_pdfs_entrada(pasta_entrada)
+        
+        if not pdfs:
+            print(f"\n⚠️  Nenhum PDF encontrado na pasta: {pasta_entrada}/")
+            print(f"\n💡 INSTRUÇÕES:")
+            print(f"   1. Coloque os PDFs CNIS na pasta: entrada/")
+            print(f"   2. Execute novamente este programa")
+            print(f"   3. Os CSVs serão gerados na pasta: saida/")
+            print(f"\n   OU use: python converter_extrato_inss.py arquivo.pdf")
+            sys.exit(0)
+        
+        print(f"\n🔍 Modo: Processar todos os PDFs")
+        print(f"   Encontrados: {len(pdfs)} arquivo(s)\n")
+        
+        sucessos = 0
+        falhas = 0
+        
+        for pdf in pdfs:
+            if processar_pdf(pdf, pasta_saida):
+                sucessos += 1
+            else:
+                falhas += 1
+        
+        print(f"\n{'='*80}")
+        print(f"📊 RESUMO FINAL:")
+        print(f"   ✅ Sucessos: {sucessos}")
+        if falhas > 0:
+            print(f"   ❌ Falhas: {falhas}")
+        print(f"{'='*80}\n")
+    
+    print(f"💾 Todos os arquivos foram salvos em: {pasta_saida}/")
+    print(f"📥 Para importar no VBA, use os arquivos *_dados_cliente.csv e *_vinculos_estruturado.csv\n")
 
-    if len(argv) < 2:
-        print("Uso: python converter_extrato_inss.py <entrada.pdf> <saida_raw.csv>")
-        sys.exit(1)
 
-    pdf_in = argv[0]
-    csv_out = argv[1]
+if __name__ == "__main__":
+    main()
 
-    linhas_saida, max_cols = extrair_tabelas(pdf_in)
-
-    # CSV genérico com todas as tabelas (como antes)
-    salvar_raw_csv(linhas_saida, max_cols, csv_out)
-
-    base = Path(csv_out).stem
-    pasta = Path(csv_out).parent
-
-    # Dados do cabeçalho (Identificação do Filiado)
-    cabecalho_path = str(pasta / f"{base}_dados_cliente.csv")
-    dados_cab = extrair_dados_cabecalho(pdf_in)
-    salvar_cabecalho_csv(dados_cab, cabecalho_path)
-
-    # CSV adicional com os blocos de vínculos (texto bruto)
-    vinculos_brutos_path = str(pasta / f"{base}_vinculos_brutos.csv")
-    salvar_vinculos_brutos(linhas_saida, vinculos_brutos_path)
-
-    # CSV estruturado com um vínculo por linha (inclui dados do cliente, se houver)
-    vinculos_struct_path = str(pasta / f"{base}_vinculos_estruturado.csv")
-    salvar_vinculos_estruturados(linhas_saida, vinculos_struct_path, dados_cab, pdf_in)
-
-    # CSV com as remunerações de cada vínculo
-    remuneracoes_path = str(pasta / f"{base}_remuneracoes.csv")
-    salvar_remuneracoes_csv(pdf_in, linhas_saida, remuneracoes_path)
-
-    # Relatório de validação
-    validacao_path = str(pasta / f"{base}_validacao.txt")
-    relatorio = gerar_relatorio_validacao(pdf_in, validacao_path)
-
-    print(f"Arquivo CSV bruto gerado em: {csv_out}")
-    print(f"Arquivo de vínculos (texto bruto) gerado em: {vinculos_brutos_path}")
-    print(f"Arquivo de vínculos estruturados gerado em: {vinculos_struct_path}")
-    print(f"Arquivo de dados do cliente (cabeçalho) gerado em: {cabecalho_path}")
-    print(f"Arquivo de remunerações gerado em: {remuneracoes_path}")
-    print(f"Relatório de validação gerado em: {validacao_path}")
-    print()
-    print(f"✅ Extração concluída:")
-    print(f"   • {relatorio['total_parseados']} vínculos capturados")
-    print(f"   • Sequências: {', '.join(map(str, relatorio['sequencias']))}")
-    if relatorio['total_nao_parseados'] > 0:
-        print(f"   ⚠️  {relatorio['total_nao_parseados']} blocos não parseados - veja {validacao_path}")
 
 
 if __name__ == "__main__":

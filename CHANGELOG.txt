@@ -1,0 +1,137 @@
+═══════════════════════════════════════════════════════════════════════════════════════
+   HISTÓRICO DE VERSÕES - SIST_PREV
+═══════════════════════════════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════════════════════════════
+  VERSÃO 1.1 - 12/01/2026
+═══════════════════════════════════════════════════════════════════════════════════════
+
+🐛 CORREÇÕES DE BUGS:
+
+  ✅ Função Nz() totalmente compatível com Access VBA
+     - Agora trata NULL, Empty e strings vazias corretamente
+     - Suporte a valor padrão opcional: Nz(valor, valorPadrao)
+     - Arquivo: modUtil.bas
+
+  ✅ Data de nascimento agora é obrigatória
+     - 4 validações implementadas: obrigatória, formato válido, não futura, idade mínima
+     - Mensagens de erro claras e específicas
+     - Arquivo: frmCadastro.bas
+
+  ✅ Cálculo preciso de tempo na reforma
+     - Nova função: CalcularTempoAte(ID_Cliente, dataLimite)
+     - Calcula tempo real sem estimativas reversas
+     - Corrigidas funções: VerificarElegibilidadeTransicao, RegraPedagio50, RegraPedagio100
+     - Arquivo: modSimulacoes.bas
+
+  ✅ Validação de data em frmSimulacoes
+     - Impede simulação com dados inválidos
+     - Mensagem clara direcionando usuário para corrigir cadastro
+     - Arquivo: frmSimulacoes.bas
+
+🎯 MELHORIAS:
+
+  ✨ Análise automática da melhor regra
+     - cmdCalcular agora identifica automaticamente a melhor regra
+     - Exibe resultado no topo do campo de observações
+     - Não é mais necessário botão separado "Analisar Todas as Regras"
+     - Arquivo: frmSimulacoes.bas
+
+  📁 Estrutura de pastas organizada
+     - entrada/ - PDFs CNIS a serem processados
+     - saida/ - CSVs gerados automaticamente
+     - info/ - Toda a documentação do sistema
+     - Pastas criadas automaticamente se não existirem
+
+  🐍 Python melhorado (converter_extrato_inss.py)
+     - Suporte a processamento em lote (vários PDFs)
+     - Caminhos relativos (funciona como .py ou .exe)
+     - Timestamps nos arquivos para evitar sobrescrever
+     - Interface mais clara com emojis e formatação
+     - Detecção automática de PDFs na pasta entrada/
+     - Duas formas de uso:
+       1. python converter_extrato_inss.py (processa todos os PDFs)
+       2. python converter_extrato_inss.py arquivo.pdf (processa um específico)
+
+  📝 Documentação completa
+     - README.txt na raiz com visão geral
+     - COMO_USAR.txt com guia rápido de uso
+     - LEIA-ME.txt em cada pasta com instruções
+     - Toda documentação técnica movida para info/
+
+═══════════════════════════════════════════════════════════════════════════════════════
+  VERSÃO 1.0 - Novembro 2025
+═══════════════════════════════════════════════════════════════════════════════════════
+
+🎉 LANÇAMENTO INICIAL:
+
+  ✅ Sistema VBA completo:
+     - Cadastro de clientes (frmCadastro)
+     - Cadastro de vínculos (frmVinculos)
+     - Busca de clientes (frmBusca)
+     - Simulações de aposentadoria (frmSimulacoes)
+
+  ✅ Motor de cálculo (modSimulacoes):
+     - Cálculo de tempo total de contribuição
+     - Conversão de tempo especial (fatores 1.4, 1.75, 2.33)
+     - Detecção de concomitância (vínculos sobrepostos)
+     - 5 regras de aposentadoria:
+       1. Tempo de Contribuição (35H/30M)
+       2. Idade Mínima (65H/62M)
+       3. Regra de Pontos (105H/100M)
+       4. Pedágio 50%
+       5. Pedágio 100%
+
+  ✅ Extrator Python (converter_extrato_inss.py):
+     - Extração de dados do PDF CNIS
+     - Geração de 5 arquivos CSV:
+       - raw.csv (tabelas brutas)
+       - dados_cliente.csv (identificação)
+       - vinculos_brutos.csv (texto bruto)
+       - vinculos_estruturado.csv (estruturado)
+       - remuneracoes.csv (salários por competência)
+     - Relatório de validação
+
+  ✅ Simulações de cenários:
+     - Cenário 1: Rápido (15 anos) - 60%
+     - Cenário 2: Equilibrado (25 anos) - 80%
+     - Cenário 3: Máximo (40 anos) - 100%
+
+═══════════════════════════════════════════════════════════════════════════════════════
+  PRÓXIMAS VERSÕES (Roadmap)
+═══════════════════════════════════════════════════════════════════════════════════════
+
+🔮 VERSÃO 1.2 (Planejada):
+
+  • Implementação de cmdToggleAuto (modo automático/manual)
+  • Cálculo real de valores com remunerações históricas
+  • Função CalcularMediaReal(ID_Cliente)
+  • Planilha "Remuneracoes" integrada ao sistema
+
+🔮 VERSÃO 1.3 (Planejada):
+
+  • Suporte a vínculos facultativos no Python
+  • Suporte a contribuinte individual
+  • Suporte a empregador doméstico
+  • Melhorias nos regex de parsing
+
+🔮 VERSÃO 2.0 (Planejada):
+
+  • Empacotamento Windows (PyInstaller)
+  • Executável único: Extrator_CNIS.exe
+  • Interface gráfica simples (Tkinter)
+  • Reajustes de valores por índices INPC/TR
+  • Planilha Indices_Reajuste
+  • Exportação para PDF/Word (relatórios)
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+📝 NOTAS DE VERSÃO:
+
+  • Todos os arquivos CSV antigos foram apagados da pasta principal
+  • Documentação reorganizada na pasta info/
+  • Sistema testado com sucesso no PDF do João Carlos
+  • 13 vínculos extraídos corretamente
+  • Nenhum erro crítico conhecido na versão 1.1
+
+═══════════════════════════════════════════════════════════════════════════════════════

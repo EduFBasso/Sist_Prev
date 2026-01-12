@@ -1,0 +1,118 @@
+═══════════════════════════════════════════════════════════════
+  SISTEMA SIST_PREV - Planejamento Previdenciário RGPS
+═══════════════════════════════════════════════════════════════
+
+📋 GUIA RÁPIDO DE USO
+
+═══════════════════════════════════════════════════════════════
+  1. ESTRUTURA DE PASTAS
+═══════════════════════════════════════════════════════════════
+
+Sist_Prev/
+├── entrada/              ← Coloque os PDFs CNIS aqui
+├── saida/                ← CSVs gerados aparecem aqui
+├── info/                 ← Documentação e manuais
+├── Formularios/          ← Código VBA dos formulários
+├── Modulos/              ← Código VBA das funções
+├── Planilhas/            ← Configurações do sistema
+├── converter_extrato_inss.py  ← Extrator Python
+└── erp_prev.xlsm         ← Planilha principal
+
+═══════════════════════════════════════════════════════════════
+  2. PROCESSAR CNIS (Extração de Dados)
+═══════════════════════════════════════════════════════════════
+
+OPÇÃO A - Processar Todos os PDFs:
+  1. Coloque todos os PDFs na pasta "entrada/"
+  2. Execute: python converter_extrato_inss.py
+  3. Os CSVs serão gerados na pasta "saida/"
+
+OPÇÃO B - Processar Um PDF Específico:
+  1. Execute: python converter_extrato_inss.py nomedoarquivo.pdf
+  2. O PDF será buscado na pasta "entrada/"
+  3. CSVs gerados na pasta "saida/"
+
+═══════════════════════════════════════════════════════════════
+  3. IMPORTAR NO EXCEL VBA
+═══════════════════════════════════════════════════════════════
+
+  1. Abrir erp_prev.xlsm (habilitar macros)
+  2. Verificar planilhas criadas:
+     - Cadastro_Clientes
+     - Vinculos
+     - Remuneracoes (futura)
+  
+  3. Importar dados via VBA:
+     - ImportarDadosClienteDeCSV("caminho/arquivo_dados_cliente.csv")
+     - ImportarVinculosDeCSV("caminho/arquivo_vinculos_estruturado.csv")
+  
+  4. Verificar se dados foram importados corretamente
+
+═══════════════════════════════════════════════════════════════
+  4. FAZER SIMULAÇÃO DE APOSENTADORIA
+═══════════════════════════════════════════════════════════════
+
+  A. Via Busca (Cliente Existente):
+     1. Abrir frmBusca
+     2. Digitar nome ou CPF
+     3. Duplo clique no cliente → frmCadastro abre
+     4. Clicar "Simular" → frmSimulacoes abre
+     5. Clicar "Calcular" → Resultados exibidos
+
+  B. Via Cadastro Manual:
+     1. Abrir frmCadastro
+     2. Preencher dados manualmente
+     3. Salvar cliente
+     4. Cadastrar vínculos em frmVinculos
+     5. Clicar "Simular" → frmSimulacoes abre
+     6. Clicar "Calcular" → Resultados exibidos
+
+═══════════════════════════════════════════════════════════════
+  5. RESULTADOS DA SIMULAÇÃO
+═══════════════════════════════════════════════════════════════
+
+O sistema exibe automaticamente:
+
+  ✓ Melhor regra de aposentadoria identificada
+  ✓ 3 cenários comparativos:
+    - Cenário 1: Rápido (15 anos) - 60% do benefício
+    - Cenário 2: Equilibrado (25 anos) - 80% do benefício
+    - Cenário 3: Máximo (40 anos) - 100% do benefício
+  
+  ✓ Para cada cenário:
+    - Tempo faltante
+    - Idade projetada
+    - Data provável de aposentadoria
+    - Valor estimado do benefício
+
+═══════════════════════════════════════════════════════════════
+  6. MANUTENÇÃO
+═══════════════════════════════════════════════════════════════
+
+Parâmetros Configuráveis (Planilha Config_Regras):
+  • Idade mínima (65H / 62M)
+  • Pontos necessários (105H / 100M)
+  • Salário mínimo (R$ 1.412,00)
+  • Teto INSS (R$ 7.786,02)
+  • Fatores de conversão tempo especial
+  • Data da reforma (13/11/2019)
+
+═══════════════════════════════════════════════════════════════
+  7. DOCUMENTAÇÃO COMPLETA
+═══════════════════════════════════════════════════════════════
+
+Consulte a pasta "info/" para:
+  • README.md - Visão geral do sistema
+  • MAPEAMENTO_FRMSIMULACOES.md - Detalhes técnicos
+  • CORRECOES_IMPLEMENTADAS.md - Histórico de melhorias
+  • STATUS_APOS_CORRECOES.md - Status atual
+
+═══════════════════════════════════════════════════════════════
+
+💡 DÚVIDAS OU PROBLEMAS?
+
+  • Verifique o arquivo *_validacao.txt na pasta "saida/"
+  • Consulte a documentação na pasta "info/"
+  • Verifique se as datas de nascimento estão preenchidas
+
+═══════════════════════════════════════════════════════════════
