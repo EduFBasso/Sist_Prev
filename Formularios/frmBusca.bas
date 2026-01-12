@@ -1,10 +1,11 @@
+' ============================================================
+' Buscar registros na planilha Cadastro_Clientes
+' ============================================================
+
 Private Sub UserForm_Initialize()
     Call cmdBuscar_Click
 End Sub
 
-' ============================================================
-' Buscar registros na planilha Cadastro_Clientes
-' ============================================================
 Private Sub cmdBuscar_Click()
 
     Dim ws As Worksheet

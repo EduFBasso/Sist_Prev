@@ -1,108 +1,108 @@
 Pagina;Tabela;Col1;Col2;Col3
 1;1;;;
-1;1;IdentificaÃ§Ã£o do Filiado;;
+1;1;Identificação do Filiado;;
 1;2;;;
-1;2;RelaÃ§Ãµes PrevidenciÃ¡rias;;
-1;3;"MatrÃ­cula do Tipo Filiado no
-Seq. NIT CÃ³digo Emp. Origem do VÃ­nculo Trabalhador VÃ­nculo Data InÃ­cio Data Fim Ãšlt. Remun.
+1;2;Relações Previdenciárias;;
+1;3;"Matrícula do Tipo Filiado no
+Seq. NIT Código Emp. Origem do Vínculo Trabalhador Vínculo Data Início Data Fim Últ. Remun.
 1 125.37781.66-1 56.528.946/0001-80 EMBIARA SERVICOS EMPRESARIAIS LTDA Empregado ou Agente 19/01/1995 02/06/1995 05/1995
-PÃºblico";;
-1;3;"RemuneraÃ§Ãµes
-CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores
+Público";;
+1;3;"Remunerações
+Competência Remuneração Indicadores Competência Remuneração Indicadores Competência Remuneração Indicadores
 01/1995 286,25 02/1995 286,25 03/1995 286,25
 04/1995 286,25 05/1995 286,25";;
 1;4;;;
-1;4;RemuneraÃ§Ãµes;;
-1;5;RemuneraÃ§Ã£o;Indicadores;
-1;6;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-1;7;CompetÃªncia;RemuneraÃ§Ã£o;
+1;4;Remunerações;;
+1;5;Remuneração;Indicadores;
+1;6;Competência;Remuneração;Indicadores
+1;7;Competência;Remuneração;
 1;8;;;
-1;8;RemuneraÃ§Ãµes;;
-1;9;RemuneraÃ§Ã£o;Indicadores;
-1;10;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-1;11;CompetÃªncia;RemuneraÃ§Ã£o;
+1;8;Remunerações;;
+1;9;Remuneração;Indicadores;
+1;10;Competência;Remuneração;Indicadores
+1;11;Competência;Remuneração;
 2;1;;;
-2;1;IdentificaÃ§Ã£o do Filiado;;
+2;1;Identificação do Filiado;;
 2;2;;;
-2;2;RelaÃ§Ãµes PrevidenciÃ¡rias;;
-2;3;"MatrÃ­cula do Tipo Filiado no
-Seq. NIT CÃ³digo Emp. Origem do VÃ­nculo Trabalhador VÃ­nculo Data InÃ­cio Data Fim Ãšlt. Remun.
+2;2;Relações Previdenciárias;;
+2;3;"Matrícula do Tipo Filiado no
+Seq. NIT Código Emp. Origem do Vínculo Trabalhador Vínculo Data Início Data Fim Últ. Remun.
 3 125.37781.66-1 59.772.269/0001-39 DANTEK COM E IMP DE EQUIP P MICROF ASSIST E Empregado ou Agente 01/05/1996 14/10/1996 06/1996
-MANUT LTDA PÃºblico";;
-2;3;"RemuneraÃ§Ãµes
-CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores
+MANUT LTDA Público";;
+2;3;"Remunerações
+Competência Remuneração Indicadores Competência Remuneração Indicadores Competência Remuneração Indicadores
 05/1996 649,99 06/1996 649,99";;
 2;4;;;
-2;4;RemuneraÃ§Ãµes;;
-2;5;RemuneraÃ§Ã£o;Indicadores;
-2;6;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-2;7;CompetÃªncia;RemuneraÃ§Ã£o;
-2;8;"MatrÃ­cula do Tipo Filiado no
-Seq. NIT CÃ³digo Emp. Origem do VÃ­nculo Trabalhador VÃ­nculo Data InÃ­cio Data Fim Ãšlt. Remun.
+2;4;Remunerações;;
+2;5;Remuneração;Indicadores;
+2;6;Competência;Remuneração;Indicadores
+2;7;Competência;Remuneração;
+2;8;"Matrícula do Tipo Filiado no
+Seq. NIT Código Emp. Origem do Vínculo Trabalhador Vínculo Data Início Data Fim Últ. Remun.
 4 125.37781.66-1 59.772.269/0001-39 DANTEK COM E IMP DE EQUIP P MICROF ASSIST E Empregado ou Agente 10/05/1996 10/1996
-MANUT LTDA PÃºblico";;
-2;8;"RemuneraÃ§Ãµes
-CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores
+MANUT LTDA Público";;
+2;8;"Remunerações
+Competência Remuneração Indicadores Competência Remuneração Indicadores Competência Remuneração Indicadores
 05/1996 476,66 06/1996 649,99 07/1996 641,14
 08/1996 666,51 09/1996 585,67 10/1996 346,66";;
 2;9;;;
-2;9;RemuneraÃ§Ãµes;;
-2;10;RemuneraÃ§Ã£o;Indicadores;
-2;11;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-2;12;CompetÃªncia;RemuneraÃ§Ã£o;
+2;9;Remunerações;;
+2;10;Remuneração;Indicadores;
+2;11;Competência;Remuneração;Indicadores
+2;12;Competência;Remuneração;
 3;1;;;
-3;1;IdentificaÃ§Ã£o do Filiado;;
+3;1;Identificação do Filiado;;
 3;2;;;
-3;2;RelaÃ§Ãµes PrevidenciÃ¡rias;;
-3;3;"MatrÃ­cula do Tipo Filiado no
-Seq. NIT CÃ³digo Emp. Origem do VÃ­nculo Trabalhador VÃ­nculo Data InÃ­cio Data Fim Ãšlt. Remun.
+3;2;Relações Previdenciárias;;
+3;3;"Matrícula do Tipo Filiado no
+Seq. NIT Código Emp. Origem do Vínculo Trabalhador Vínculo Data Início Data Fim Últ. Remun.
 5 125.37781.66-1 59.772.269/0001-39 DANTEK COM E IMP DE EQUIP P MICROF ASSIST E Empregado ou Agente 01/07/1996 14/10/1996 09/1996
-MANUT LTDA PÃºblico";;
-3;3;"RemuneraÃ§Ãµes
-CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores
+MANUT LTDA Público";;
+3;3;"Remunerações
+Competência Remuneração Indicadores Competência Remuneração Indicadores Competência Remuneração Indicadores
 07/1996 641,12 08/1996 666,49 09/1996 585,62";;
 3;4;;;
-3;4;RemuneraÃ§Ãµes;;
-3;5;RemuneraÃ§Ã£o;Indicadores;
-3;6;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-3;7;CompetÃªncia;RemuneraÃ§Ã£o;
-3;8;"MatrÃ­cula do Tipo Filiado no
-Seq. NIT CÃ³digo Emp. Origem do VÃ­nculo Trabalhador VÃ­nculo Data InÃ­cio Data Fim Ãšlt. Remun.
+3;4;Remunerações;;
+3;5;Remuneração;Indicadores;
+3;6;Competência;Remuneração;Indicadores
+3;7;Competência;Remuneração;
+3;8;"Matrícula do Tipo Filiado no
+Seq. NIT Código Emp. Origem do Vínculo Trabalhador Vínculo Data Início Data Fim Últ. Remun.
 6 125.37781.66-1 71.740.237/0001-57 PTT EMPREENDIMENTOS LTDA. Empregado ou Agente 06/01/1998 05/04/1998 04/1998
-PÃºblico";;
-3;8;"RemuneraÃ§Ãµes
-CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores
+Público";;
+3;8;"Remunerações
+Competência Remuneração Indicadores Competência Remuneração Indicadores Competência Remuneração Indicadores
 01/1998 519,99 02/1998 519,99 03/1998 600,00
 04/1998 99,99";;
 3;9;;;
-3;9;RemuneraÃ§Ãµes;;
-3;10;RemuneraÃ§Ã£o;Indicadores;
-3;11;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-3;12;CompetÃªncia;RemuneraÃ§Ã£o;
+3;9;Remunerações;;
+3;10;Remuneração;Indicadores;
+3;11;Competência;Remuneração;Indicadores
+3;12;Competência;Remuneração;
 4;1;;;
-4;1;IdentificaÃ§Ã£o do Filiado;;
+4;1;Identificação do Filiado;;
 4;2;;;
-4;2;RelaÃ§Ãµes PrevidenciÃ¡rias;;
+4;2;Relações Previdenciárias;;
 4;3;;;
-4;3;RemuneraÃ§Ãµes;;
-4;4;RemuneraÃ§Ã£o;Indicadores;
-4;5;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-4;6;CompetÃªncia;RemuneraÃ§Ã£o;
+4;3;Remunerações;;
+4;4;Remuneração;Indicadores;
+4;5;Competência;Remuneração;Indicadores
+4;6;Competência;Remuneração;
 4;7;;;
-4;7;RemuneraÃ§Ãµes;;
-4;8;RemuneraÃ§Ã£o;Indicadores;
-4;9;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-4;10;CompetÃªncia;RemuneraÃ§Ã£o;
+4;7;Remunerações;;
+4;8;Remuneração;Indicadores;
+4;9;Competência;Remuneração;Indicadores
+4;10;Competência;Remuneração;
 5;1;;;
-5;1;IdentificaÃ§Ã£o do Filiado;;
+5;1;Identificação do Filiado;;
 5;2;;;
-5;2;RelaÃ§Ãµes PrevidenciÃ¡rias;;
-5;3;"MatrÃ­cula do Tipo Filiado no
-Seq. NIT CÃ³digo Emp. Origem do VÃ­nculo Trabalhador VÃ­nculo Data InÃ­cio Data Fim Ãšlt. Remun.
+5;2;Relações Previdenciárias;;
+5;3;"Matrícula do Tipo Filiado no
+Seq. NIT Código Emp. Origem do Vínculo Trabalhador Vínculo Data Início Data Fim Últ. Remun.
 9 125.37781.66-1 03.782.845/0001-74 JR EQUIPAMENTOS ELETRONICOS LTDA Empregado ou Agente 03/07/2002 15/03/2004 03/2004
-PÃºblico";;
-5;3;"RemuneraÃ§Ãµes
-CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores
+Público";;
+5;3;"Remunerações
+Competência Remuneração Indicadores Competência Remuneração Indicadores Competência Remuneração Indicadores
 07/2002 782,03 08/2002 1.068,16 09/2002 874,00
 10/2002 874,00 11/2002 874,00 12/2002 874,00
 01/2003 874,00 02/2003 874,00 03/2003 874,00
@@ -111,51 +111,51 @@ CompetÃªncia RemuneraÃ§Ã£o Indicadores CompetÃªncia RemuneraÃ§Ã£o Indicadores Co
 10/2003 962,00 11/2003 962,00 12/2003 962,00
 01/2004 1.399,00 02/2004 1.005,70 03/2004 502,85";;
 5;4;;;
-5;4;RemuneraÃ§Ãµes;;
-5;5;RemuneraÃ§Ã£o;Indicadores;
-5;6;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-5;7;CompetÃªncia;RemuneraÃ§Ã£o;
+5;4;Remunerações;;
+5;5;Remuneração;Indicadores;
+5;6;Competência;Remuneração;Indicadores
+5;7;Competência;Remuneração;
 6;1;;;
-6;1;IdentificaÃ§Ã£o do Filiado;;
+6;1;Identificação do Filiado;;
 6;2;;;
-6;2;RelaÃ§Ãµes PrevidenciÃ¡rias;;
+6;2;Relações Previdenciárias;;
 6;3;;;
-6;3;RemuneraÃ§Ãµes;;
-6;4;RemuneraÃ§Ã£o;Indicadores;
-6;5;CompetÃªncia;RemuneraÃ§Ã£o;Indicadores
-6;6;CompetÃªncia;RemuneraÃ§Ã£o;
+6;3;Remunerações;;
+6;4;Remuneração;Indicadores;
+6;5;Competência;Remuneração;Indicadores
+6;6;Competência;Remuneração;
 7;1;;;
-7;1;IdentificaÃ§Ã£o do Filiado;;
+7;1;Identificação do Filiado;;
 7;2;;;
-7;2;RelaÃ§Ãµes PrevidenciÃ¡rias;;
+7;2;Relações Previdenciárias;;
 7;3;;;
-7;3;ContribuiÃ§Ãµes;;
-7;4;SalÃ¡rio ContribuiÃ§Ã£o;Indicadores;
-7;5;CompetÃªncia;Data Pgto.;
-7;6;"Seq. NIT Origem do VÃ­nculo Tipo Filiado no VÃ­nculo Data InÃ­cio Data Fim Indicadores
+7;3;Contribuições;;
+7;4;Salário Contribuição;Indicadores;
+7;5;Competência;Data Pgto.;
+7;6;"Seq. NIT Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim Indicadores
 12 125.37781.66-1 RECOLHIMENTO Facultativo 01/10/2024 30/06/2025 IREC-INDPEND";;
-7;6;"ContribuiÃ§Ãµes
-CompetÃªncia Data Pgto. ContribuiÃ§Ã£o SalÃ¡rio ContribuiÃ§Ã£o Indicadores CompetÃªncia Data Pgto. ContribuiÃ§Ã£o SalÃ¡rio ContribuiÃ§Ã£o Indicadores
+7;6;"Contribuições
+Competência Data Pgto. Contribuição Salário Contribuição Indicadores Competência Data Pgto. Contribuição Salário Contribuição Indicadores
 10/2024 07/10/2024 282,40 1.412,00 PREC-FACULTCONC 11/2024 18/11/2024 282,40 1.412,00 PREC-FACULTCONC
 12/2024 06/01/2025 282,40 1.412,00 PREC-FACULTCONC
 01/2025 22/01/2025 303,60 1.518,00 PREC-FACULTCONC 02/2025 17/02/2025 303,60 1.518,00 PREC-FACULTCONC
 03/2025 10/03/2025 303,60 1.518,00 PREC-FACULTCONC 04/2025 16/04/2025 303,60 1.518,00 PREC-FACULTCONC
 05/2025 16/05/2025 303,60 1.518,00 PREC-FACULTCONC 06/2025 16/06/2025 303,60 1.518,00 PREC-FACULTCONC";;
 7;7;;;
-7;7;ContribuiÃ§Ãµes;;
-7;8;SalÃ¡rio ContribuiÃ§Ã£o;Indicadores;
-7;9;CompetÃªncia;Data Pgto.;
-7;10;"Seq. NIT Origem do VÃ­nculo Tipo Filiado no VÃ­nculo Data InÃ­cio Data Fim Indicadores
+7;7;Contribuições;;
+7;8;Salário Contribuição;Indicadores;
+7;9;Competência;Data Pgto.;
+7;10;"Seq. NIT Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim Indicadores
 13 125.37781.66-1 RECOLHIMENTO Facultativo 01/08/2025 30/11/2025 IREC-INDPEND";;
-7;10;"ContribuiÃ§Ãµes
-CompetÃªncia Data Pgto. ContribuiÃ§Ã£o SalÃ¡rio ContribuiÃ§Ã£o Indicadores CompetÃªncia Data Pgto. ContribuiÃ§Ã£o SalÃ¡rio ContribuiÃ§Ã£o Indicadores
+7;10;"Contribuições
+Competência Data Pgto. Contribuição Salário Contribuição Indicadores Competência Data Pgto. Contribuição Salário Contribuição Indicadores
 08/2025 15/09/2025 303,60 1.518,00 PREC-FACULTCONC 09/2025 15/09/2025 303,60 1.518,00 PREC-FACULTCONC
 10/2025 14/11/2025 303,60 1.518,00 PREC-FACULTCONC 11/2025 15/12/2025 303,60 1.518,00 PREC-FACULTCONC";;
 7;11;;;
-7;11;ContribuiÃ§Ãµes;;
-7;12;SalÃ¡rio ContribuiÃ§Ã£o;Indicadores;
-7;13;CompetÃªncia;Data Pgto.;
+7;11;Contribuições;;
+7;12;Salário Contribuição;Indicadores;
+7;13;Competência;Data Pgto.;
 8;1;;;
-8;1;IdentificaÃ§Ã£o do Filiado;;
+8;1;Identificação do Filiado;;
 8;2;;;
 8;2;Legenda de Indicadores;;

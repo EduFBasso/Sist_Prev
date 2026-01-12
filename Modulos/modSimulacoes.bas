@@ -90,6 +90,113 @@ Proximo:
     CalcularTempo = diasTotal / 365.25
 End Function
 
+Function CalcularTempoAte(ID_Cliente As Long, dataLimite As Date) As Double
+    ' Calcula tempo total de contribuição até uma data específica
+    ' Útil para calcular tempo na data da reforma sem estimativas
+    ' Considera apenas vínculos que já existiam até a data limite
+    
+    Dim ws As Worksheet
+    Dim ultima As Long
+    Dim i As Long
+    Dim n As Long
+    Dim diasTotal As Double
+    Dim dtInicio As Date
+    Dim dtFim As Date
+    Dim k As Long
+    Dim tmp As Date
+
+    Dim datasInicio() As Date
+    Dim datasFim() As Date
+
+    Set ws = Sheets("Vinculos")
+
+    ultima = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+
+    For i = 2 To ultima
+        If ws.Cells(i, 2).Value = ID_Cliente Then
+            If IsDate(ws.Cells(i, 3).Value) Then
+                dtInicio = CDate(ws.Cells(i, 3).Value)
+            Else
+                GoTo ProximoVinculo
+            End If
+
+            ' Se o vínculo começou após a data limite, ignora
+            If dtInicio > dataLimite Then
+                GoTo ProximoVinculo
+            End If
+
+            If IsDate(ws.Cells(i, 4).Value) Then
+                dtFim = CDate(ws.Cells(i, 4).Value)
+            Else
+                ' Se não tem data fim, usa a menor entre hoje e dataLimite
+                If Date <= dataLimite Then
+                    dtFim = Date
+                Else
+                    dtFim = dataLimite
+                End If
+            End If
+
+            ' Limita dtFim à data limite
+            If dtFim > dataLimite Then
+                dtFim = dataLimite
+            End If
+
+            If dtFim >= dtInicio Then
+                n = n + 1
+                ReDim Preserve datasInicio(1 To n)
+                ReDim Preserve datasFim(1 To n)
+                datasInicio(n) = dtInicio
+                datasFim(n) = dtFim
+            End If
+        End If
+ProximoVinculo:
+    Next i
+
+    If n = 0 Then
+        CalcularTempoAte = 0
+        Exit Function
+    End If
+
+    ' Ordenar períodos por data de início
+    Dim j As Long
+    For i = 1 To n - 1
+        For j = i + 1 To n
+            If datasInicio(j) < datasInicio(i) Then
+                tmp = datasInicio(i)
+                datasInicio(i) = datasInicio(j)
+                datasInicio(j) = tmp
+
+                tmp = datasFim(i)
+                datasFim(i) = datasFim(j)
+                datasFim(j) = tmp
+            End If
+        Next j
+    Next i
+
+    ' Unificar períodos sobrepostos
+    Dim atualInicio As Date
+    Dim atualFim As Date
+
+    atualInicio = datasInicio(1)
+    atualFim = datasFim(1)
+
+    For k = 2 To n
+        If datasInicio(k) <= atualFim Then
+            If datasFim(k) > atualFim Then
+                atualFim = datasFim(k)
+            End If
+        Else
+            diasTotal = diasTotal + DateDiff("d", atualInicio, atualFim)
+            atualInicio = datasInicio(k)
+            atualFim = datasFim(k)
+        End If
+    Next k
+
+    diasTotal = diasTotal + DateDiff("d", atualInicio, atualFim)
+
+    CalcularTempoAte = diasTotal / 365.25
+End Function
+
 Function SimularAposentadoria(ID_Cliente As Long, regra As String) As Collection
     ' Usa GetParametro para aplicar regras
     Select Case UCase(regra)
@@ -422,12 +529,8 @@ Function RegraPedagio50(ID_Cliente As Long) As Collection
         tempoNecessario = 30
     End If
     
-    ' Calcular quanto tempo tinha na data da reforma (estimativa)
-    ' Simplificação: considera que trabalhou continuamente
-    Dim anosDesdeReforma As Double
-    anosDesdeReforma = DateDiff("d", dataReforma, Date) / 365.25
-    tempoNaReforma = tempoTotal - anosDesdeReforma
-    If tempoNaReforma < 0 Then tempoNaReforma = 0
+    ' Calcular tempo REAL na data da reforma (sem estimar)
+    tempoNaReforma = CalcularTempoAte(ID_Cliente, dataReforma)
     
     ' Verificar elegibilidade: faltavam até 2 anos na reforma?
     tempoFaltava = tempoNecessario - tempoNaReforma
@@ -506,11 +609,8 @@ Function RegraPedagio100(ID_Cliente As Long) As Collection
         tempoNecessario = 30
     End If
     
-    ' Calcular quanto tempo tinha na data da reforma
-    Dim anosDesdeReforma As Double
-    anosDesdeReforma = DateDiff("d", dataReforma, Date) / 365.25
-    tempoNaReforma = tempoTotal - anosDesdeReforma
-    If tempoNaReforma < 0 Then tempoNaReforma = 0
+    ' Calcular tempo REAL na data da reforma (sem estimar)
+    tempoNaReforma = CalcularTempoAte(ID_Cliente, dataReforma)
     
     ' Calcular tempo que faltava na reforma
     tempoFaltava = tempoNecessario - tempoNaReforma
@@ -620,14 +720,8 @@ Function VerificarElegibilidadeTransicao(ID_Cliente As Long) As String
     ' Buscar data da reforma
     dataReforma = CDate(GetParametro("Data_Reforma"))
     
-    ' Calcular tempo de contribuição na data da reforma
-    Dim tempoTotal As Double
-    tempoTotal = CalcularTempo(ID_Cliente)
-    
-    Dim anosDesdeReforma As Double
-    anosDesdeReforma = DateDiff("d", dataReforma, Date) / 365.25
-    tempoNaReforma = tempoTotal - anosDesdeReforma
-    If tempoNaReforma < 0 Then tempoNaReforma = 0
+    ' Calcular tempo de contribuição REAL na data da reforma (sem estimativas)
+    tempoNaReforma = CalcularTempoAte(ID_Cliente, dataReforma)
     
     ' Define tempo necessário conforme sexo
     If UCase(sexo) = "M" Or UCase(sexo) = "MASCULINO" Then
@@ -756,5 +850,203 @@ Function AnalisarMelhorRegra(ID_Cliente As Long) As Collection
     resultado.Add melhorRegra, "MelhorRegra"
     
     Set AnalisarMelhorRegra = resultado
+End Function
+
+' ============================================
+' FUNÇÕES PARA CÁLCULO DOS 3 CENÁRIOS
+' ============================================
+
+Function ObterDadosAtuaisCliente(ID_Cliente As Long) As Collection
+    ' Retorna dados atuais do cliente
+    Dim resultado As New Collection
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim nascimento As Date
+    Dim idadeAtual As Long
+    Dim tempoContribuido As Double
+    Dim sexo As String
+    
+    Set ws = Sheets("Cadastro_Clientes")
+    linha = BuscarLinhaCliente(ID_Cliente)
+    
+    nascimento = CDate(ws.Cells(linha, 7).Value)
+    sexo = ws.Cells(linha, 8).Value
+    idadeAtual = CalcularIdade(nascimento)
+    tempoContribuido = CalcularTempo(ID_Cliente)
+    
+    resultado.Add idadeAtual, "IdadeAtual"
+    resultado.Add tempoContribuido, "TempoContribuido"
+    resultado.Add nascimento, "DataNascimento"
+    resultado.Add sexo, "Sexo"
+    
+    Set ObterDadosAtuaisCliente = resultado
+End Function
+
+Function CalcularCenarioRapido(ID_Cliente As Long) As Collection
+    ' Cenário 1: Aposentadoria mais rápida possível (15 anos)
+    Dim resultado As New Collection
+    Dim dadosAtuais As Collection
+    Dim tempoNecessario As Double
+    Dim tempoFaltando As Double
+    Dim dataAposentadoria As Date
+    Dim idadeAposentadoria As Long
+    Dim percentual As Double
+    Dim valorEstimado As Double
+    Dim anosFaltantes As Long
+    Dim mesesFaltantes As Long
+    
+    Set dadosAtuais = ObterDadosAtuaisCliente(ID_Cliente)
+    
+    ' Tempo mínimo legal = 15 anos
+    tempoNecessario = 15
+    tempoFaltando = tempoNecessario - dadosAtuais("TempoContribuido")
+    
+    If tempoFaltando < 0 Then tempoFaltando = 0
+    
+    ' Calcular data de aposentadoria
+    dataAposentadoria = DateAdd("d", tempoFaltando * 365.25, Date)
+    idadeAposentadoria = dadosAtuais("IdadeAtual") + Int(tempoFaltando)
+    
+    ' Percentual = 60% (mínimo legal)
+    percentual = 60
+    
+    ' Valor estimado
+    valorEstimado = CalcularValorBeneficio(ID_Cliente, tempoNecessario)
+    
+    ' Converter tempo faltando em anos e meses
+    anosFaltantes = Int(tempoFaltando)
+    mesesFaltantes = Round((tempoFaltando - anosFaltantes) * 12, 0)
+    
+    resultado.Add tempoNecessario, "TempoNecessario"
+    resultado.Add tempoFaltando, "TempoFaltando"
+    resultado.Add anosFaltantes, "AnosFaltantes"
+    resultado.Add mesesFaltantes, "MesesFaltantes"
+    resultado.Add dataAposentadoria, "DataAposentadoria"
+    resultado.Add idadeAposentadoria, "IdadeAposentadoria"
+    resultado.Add percentual, "Percentual"
+    resultado.Add valorEstimado, "ValorEstimado"
+    
+    Set CalcularCenarioRapido = resultado
+End Function
+
+Function CalcularCenarioEquilibrado(ID_Cliente As Long) As Collection
+    ' Cenário 2: Balanceamento entre tempo e valor (25 anos = 78%)
+    Dim resultado As New Collection
+    Dim dadosAtuais As Collection
+    Dim tempoNecessario As Double
+    Dim tempoFaltando As Double
+    Dim dataAposentadoria As Date
+    Dim idadeAposentadoria As Long
+    Dim percentual As Double
+    Dim valorEstimado As Double
+    Dim anosFaltantes As Long
+    Dim mesesFaltantes As Long
+    Dim sexo As String
+    Dim tempoBase As Double
+    
+    Set dadosAtuais = ObterDadosAtuaisCliente(ID_Cliente)
+    sexo = dadosAtuais("Sexo")
+    
+    ' Define tempo base conforme sexo
+    If UCase(sexo) = "M" Or UCase(sexo) = "MASCULINO" Then
+        tempoBase = 20
+    Else
+        tempoBase = 15
+    End If
+    
+    ' Tempo equilibrado = 25 anos
+    tempoNecessario = 25
+    tempoFaltando = tempoNecessario - dadosAtuais("TempoContribuido")
+    
+    If tempoFaltando < 0 Then tempoFaltando = 0
+    
+    ' Calcular data de aposentadoria
+    dataAposentadoria = DateAdd("d", tempoFaltando * 365.25, Date)
+    idadeAposentadoria = dadosAtuais("IdadeAtual") + Int(tempoFaltando)
+    
+    ' Percentual = 60% + 2% × (25 - tempoBase)
+    percentual = 60 + (2 * (tempoNecessario - tempoBase))
+    
+    ' Valor estimado
+    valorEstimado = CalcularValorBeneficio(ID_Cliente, tempoNecessario)
+    
+    ' Converter tempo faltando em anos e meses
+    anosFaltantes = Int(tempoFaltando)
+    mesesFaltantes = Round((tempoFaltando - anosFaltantes) * 12, 0)
+    
+    resultado.Add tempoNecessario, "TempoNecessario"
+    resultado.Add tempoFaltando, "TempoFaltando"
+    resultado.Add anosFaltantes, "AnosFaltantes"
+    resultado.Add mesesFaltantes, "MesesFaltantes"
+    resultado.Add dataAposentadoria, "DataAposentadoria"
+    resultado.Add idadeAposentadoria, "IdadeAposentadoria"
+    resultado.Add percentual, "Percentual"
+    resultado.Add valorEstimado, "ValorEstimado"
+    
+    Set CalcularCenarioEquilibrado = resultado
+End Function
+
+Function CalcularCenarioMaximo(ID_Cliente As Long) As Collection
+    ' Cenário 3: Benefício máximo (40 anos = 100%)
+    Dim resultado As New Collection
+    Dim dadosAtuais As Collection
+    Dim tempoNecessario As Double
+    Dim tempoFaltando As Double
+    Dim dataAposentadoria As Date
+    Dim idadeAposentadoria As Long
+    Dim percentual As Double
+    Dim valorEstimado As Double
+    Dim anosFaltantes As Long
+    Dim mesesFaltantes As Long
+    
+    Set dadosAtuais = ObterDadosAtuaisCliente(ID_Cliente)
+    
+    ' Tempo máximo = 40 anos
+    tempoNecessario = 40
+    tempoFaltando = tempoNecessario - dadosAtuais("TempoContribuido")
+    
+    If tempoFaltando < 0 Then tempoFaltando = 0
+    
+    ' Calcular data de aposentadoria
+    dataAposentadoria = DateAdd("d", tempoFaltando * 365.25, Date)
+    idadeAposentadoria = dadosAtuais("IdadeAtual") + Int(tempoFaltando)
+    
+    ' Percentual = 100% (máximo)
+    percentual = 100
+    
+    ' Valor estimado
+    valorEstimado = CalcularValorBeneficio(ID_Cliente, tempoNecessario)
+    
+    ' Converter tempo faltando em anos e meses
+    anosFaltantes = Int(tempoFaltando)
+    mesesFaltantes = Round((tempoFaltando - anosFaltantes) * 12, 0)
+    
+    resultado.Add tempoNecessario, "TempoNecessario"
+    resultado.Add tempoFaltando, "TempoFaltando"
+    resultado.Add anosFaltantes, "AnosFaltantes"
+    resultado.Add mesesFaltantes, "MesesFaltantes"
+    resultado.Add dataAposentadoria, "DataAposentadoria"
+    resultado.Add idadeAposentadoria, "IdadeAposentadoria"
+    resultado.Add percentual, "Percentual"
+    resultado.Add valorEstimado, "ValorEstimado"
+    
+    Set CalcularCenarioMaximo = resultado
+End Function
+
+Function FormatarTempoExtenso(anos As Long, meses As Long) As String
+    ' Formata tempo em texto legível
+    Dim resultado As String
+    
+    If anos = 0 And meses = 0 Then
+        resultado = "Já elegível!"
+    ElseIf anos = 0 Then
+        resultado = meses & " " & IIf(meses = 1, "mês", "meses")
+    ElseIf meses = 0 Then
+        resultado = anos & " " & IIf(anos = 1, "ano", "anos")
+    Else
+        resultado = anos & " " & IIf(anos = 1, "ano", "anos") & " e " & meses & " " & IIf(meses = 1, "mês", "meses")
+    End If
+    
+    FormatarTempoExtenso = resultado
 End Function
 

@@ -1,6 +1,6 @@
-' ================================================================
-' frmCadastro - Formulário de cadastro de clientes
-' ================================================================
+' =================================================================================
+' frmCadastro - Cadastrar, atualizar, e ponto de partida para Simular Aposentadoria
+' =================================================================================
 
 Private Sub UserForm_Initialize()
 
@@ -204,8 +204,38 @@ Private Sub cmdSalvar_Click()
         Me.txtID.Value = GerarNovoID()
     End If
     
+    ' Validações obrigatórias
     If Trim(Me.txtNome.Value) = "" Then
         MsgBox "Informe o nome do cliente.", vbExclamation
+        Me.txtNome.SetFocus
+        Exit Sub
+    End If
+    
+    ' Validação obrigatória: Data de Nascimento
+    If Trim(Me.txtNascimento.Value) = "" Then
+        MsgBox "A data de nascimento é obrigatória.", vbExclamation
+        Me.txtNascimento.SetFocus
+        Exit Sub
+    End If
+    
+    ' Validar se a data está no formato correto
+    If Not IsDate(Me.txtNascimento.Value) Then
+        MsgBox "Data de nascimento inválida. Use o formato dd/mm/aaaa.", vbExclamation
+        Me.txtNascimento.SetFocus
+        Exit Sub
+    End If
+    
+    ' Validar se a data não é futura
+    If CDate(Me.txtNascimento.Value) > Date Then
+        MsgBox "A data de nascimento não pode ser futura.", vbExclamation
+        Me.txtNascimento.SetFocus
+        Exit Sub
+    End If
+    
+    ' Validar idade mínima (ex: 16 anos) - ajuste conforme necessário
+    If DateDiff("yyyy", CDate(Me.txtNascimento.Value), Date) < 16 Then
+        MsgBox "Cliente deve ter pelo menos 16 anos.", vbExclamation
+        Me.txtNascimento.SetFocus
         Exit Sub
     End If
 
@@ -324,3 +354,4 @@ Private Sub cmdSimular_Click()
     frmSimulacoes.Show
 
 End Sub
+

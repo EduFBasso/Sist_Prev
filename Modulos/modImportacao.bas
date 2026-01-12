@@ -316,3 +316,169 @@ Function CalcularMediaSalarios(ID_Cliente As Long) As Double
     CalcularMediaSalarios = total / quantidadeConsiderar
     
 End Function
+
+Sub CriarRelatorioCliente(ID_Cliente As Long)
+    ' Cria uma planilha resumo com todos os dados organizados do cliente
+    ' Baseado nos dados extraídos do CNIS
+    
+    Dim wsCadastro As Worksheet
+    Dim wsVinculos As Worksheet
+    Dim wsRelatorio As Worksheet
+    Dim nomeCliente As String
+    Dim cpfCliente As String
+    Dim i As Long
+    Dim linha As Long
+    Dim nomeAba As String
+    
+    ' Busca dados do cliente
+    Set wsCadastro = Sheets("Cadastro_Clientes")
+    
+    For i = 2 To wsCadastro.Cells(wsCadastro.Rows.Count, 1).End(xlUp).Row
+        If wsCadastro.Cells(i, 1).Value = ID_Cliente Then
+            nomeCliente = wsCadastro.Cells(i, 2).Value
+            cpfCliente = wsCadastro.Cells(i, 3).Value
+            Exit For
+        End If
+    Next i
+    
+    If nomeCliente = "" Then
+        MsgBox "Cliente não encontrado (ID " & ID_Cliente & ")", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Nome da aba: Primeiros 25 caracteres do nome (limite do Excel: 31)
+    nomeAba = "Rel_" & Left(nomeCliente, 25)
+    
+    ' Remove aba se já existir
+    On Error Resume Next
+    Application.DisplayAlerts = False
+    Sheets(nomeAba).Delete
+    Application.DisplayAlerts = True
+    On Error GoTo 0
+    
+    ' Cria nova aba
+    Set wsRelatorio = Sheets.Add(After:=Sheets(Sheets.Count))
+    wsRelatorio.Name = nomeAba
+    
+    ' CABEÇALHO DO RELATÓRIO
+    linha = 1
+    With wsRelatorio
+        .Cells(linha, 1).Value = "RELATÓRIO DE VÍNCULOS E CONTRIBUIÇÕES - CNIS"
+        .Cells(linha, 1).Font.Bold = True
+        .Cells(linha, 1).Font.Size = 14
+        linha = linha + 1
+        
+        linha = linha + 1
+        .Cells(linha, 1).Value = "Cliente:"
+        .Cells(linha, 1).Font.Bold = True
+        .Cells(linha, 2).Value = nomeCliente
+        linha = linha + 1
+        
+        .Cells(linha, 1).Value = "CPF:"
+        .Cells(linha, 1).Font.Bold = True
+        .Cells(linha, 2).Value = cpfCliente
+        linha = linha + 1
+        
+        .Cells(linha, 1).Value = "Data:"
+        .Cells(linha, 1).Font.Bold = True
+        .Cells(linha, 2).Value = Date
+        linha = linha + 2
+        
+        ' VÍNCULOS
+        .Cells(linha, 1).Value = "VÍNCULOS CONTRIBUTIVOS"
+        .Cells(linha, 1).Font.Bold = True
+        .Cells(linha, 1).Font.Size = 12
+        linha = linha + 1
+        
+        ' Cabeçalho da tabela
+        .Cells(linha, 1).Value = "Seq"
+        .Cells(linha, 2).Value = "Tipo"
+        .Cells(linha, 3).Value = "Empresa/CNPJ"
+        .Cells(linha, 4).Value = "Data Início"
+        .Cells(linha, 5).Value = "Data Fim"
+        .Cells(linha, 6).Value = "Tempo (anos)"
+        .Cells(linha, 7).Value = "Indicadores"
+        
+        ' Formatar cabeçalho
+        .Range(.Cells(linha, 1), .Cells(linha, 7)).Font.Bold = True
+        .Range(.Cells(linha, 1), .Cells(linha, 7)).Interior.Color = RGB(200, 200, 200)
+        linha = linha + 1
+    End With
+    
+    ' Busca vínculos do cliente
+    Set wsVinculos = Sheets("Vinculos")
+    Dim linhaInicio As Long
+    linhaInicio = linha
+    
+    For i = 2 To wsVinculos.Cells(wsVinculos.Rows.Count, 1).End(xlUp).Row
+        If wsVinculos.Cells(i, 3).Value = ID_Cliente Then
+            Dim seq As String
+            Dim tipoFiliado As String
+            Dim empresaCNPJ As String
+            Dim dataIni As String
+            Dim dataFim As String
+            Dim tempoAnos As Double
+            Dim indicadores As String
+            
+            seq = wsVinculos.Cells(i, 4).Value  ' Seq
+            tipoFiliado = wsVinculos.Cells(i, 7).Value  ' Tipo
+            
+            ' Monta campo Empresa/CNPJ
+            Dim cnpj As String
+            Dim empresa As String
+            cnpj = wsVinculos.Cells(i, 5).Value
+            empresa = wsVinculos.Cells(i, 6).Value
+            
+            If Len(cnpj) > 0 Then
+                empresaCNPJ = empresa & " (" & cnpj & ")"
+            Else
+                empresaCNPJ = tipoFiliado
+            End If
+            
+            dataIni = wsVinculos.Cells(i, 8).Value
+            dataFim = wsVinculos.Cells(i, 9).Value
+            indicadores = wsVinculos.Cells(i, 11).Value
+            
+            ' Calcula tempo
+            If IsDate(dataIni) Then
+                Dim dtFim As Date
+                If IsDate(dataFim) Then
+                    dtFim = CDate(dataFim)
+                Else
+                    dtFim = Date
+                End If
+                tempoAnos = (dtFim - CDate(dataIni)) / 365.25
+            End If
+            
+            ' Preenche linha
+            With wsRelatorio
+                .Cells(linha, 1).Value = seq
+                .Cells(linha, 2).Value = tipoFiliado
+                .Cells(linha, 3).Value = empresaCNPJ
+                .Cells(linha, 4).Value = dataIni
+                .Cells(linha, 5).Value = dataFim
+                .Cells(linha, 6).Value = Round(tempoAnos, 2)
+                .Cells(linha, 7).Value = indicadores
+            End With
+            
+            linha = linha + 1
+        End If
+    Next i
+    
+    ' Formata tabela de vínculos
+    If linha > linhaInicio Then
+        With wsRelatorio
+            .Range(.Cells(linhaInicio, 1), .Cells(linha - 1, 7)).Borders.LineStyle = xlContinuous
+        End With
+    End If
+    
+    ' Ajusta largura das colunas
+    wsRelatorio.Columns("A:G").AutoFit
+    
+    ' Vai para a aba criada
+    wsRelatorio.Activate
+    wsRelatorio.Range("A1").Select
+    
+    MsgBox "Relatório criado com sucesso: " & nomeAba, vbInformation
+    
+End Sub

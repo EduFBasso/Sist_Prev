@@ -1,0 +1,22 @@
+================================================================================
+RELATÓRIO DE VALIDAÇÃO DA EXTRAÇÃO - CNIS
+================================================================================
+
+? RESUMO
+  • Total de blocos encontrados: 13
+  • Vínculos parseados com sucesso: 13
+  • Blocos NÃO parseados: 0
+
+? SEQUÊNCIAS CAPTURADAS (13)
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+??  TIPOS DE VÍNCULO ENCONTRADOS (2)
+  • Contribuinte Facultativo
+  • Empregado ou Agente Público
+
+? TODOS OS BLOCOS FORAM PARSEADOS COM SUCESSO!
+
+================================================================================
+? DICA: Se há blocos não parseados, envie o PDF para análise.
+   O extrator pode precisar de ajustes para novos formatos.
+================================================================================

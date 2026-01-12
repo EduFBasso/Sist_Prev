@@ -8,6 +8,8 @@ Sub SalvarVinculo(dados As Collection)
     Dim ws As Worksheet
     Dim linha As Long
     Dim idV As Long
+    Dim dataInicio As Variant
+    Dim dataFim As Variant
     
     Set ws = Sheets("Vinculos")
     
@@ -19,10 +21,14 @@ Sub SalvarVinculo(dados As Collection)
         idV = dados("ID_Vinculo")
     End If
     
+    ' Converte datas do formato brasileiro (DD/MM/YYYY) corretamente
+    dataInicio = ConverteBRParaData(dados("Inicio"))
+    dataFim = ConverteBRParaData(dados("Fim"))
+    
     ws.Cells(linha, 1).Value = idV
     ws.Cells(linha, 2).Value = dados("ID_Cliente")
-    ws.Cells(linha, 3).Value = dados("Inicio")
-    ws.Cells(linha, 4).Value = dados("Fim")
+    ws.Cells(linha, 3).Value = dataInicio
+    ws.Cells(linha, 4).Value = dataFim
     ws.Cells(linha, 5).Value = dados("Tipo")
     ws.Cells(linha, 6).Value = dados("Especial")
     ws.Cells(linha, 7).Value = dados("Grau")
@@ -82,31 +88,139 @@ Function BuscarLinhaVinculo(ID_Vinculo As Long) As Long
 
 End Function
 
+Function ConverteBRParaData(textoData As String) As Variant
+    ' Converte string no formato DD/MM/YYYY para Date
+    ' Garante que datas brasileiras sejam interpretadas corretamente
+    
+    Dim partes() As String
+    Dim dia As Integer
+    Dim mes As Integer
+    Dim ano As Integer
+    
+    On Error Resume Next
+    
+    If Trim(textoData) = "" Then
+        ConverteBRParaData = ""
+        Exit Function
+    End If
+    
+    ' Separa DD/MM/YYYY
+    partes = Split(textoData, "/")
+    
+    If UBound(partes) = 2 Then
+        dia = CInt(partes(0))
+        mes = CInt(partes(1))
+        ano = CInt(partes(2))
+        
+        ' Valida se é uma data válida
+        If dia >= 1 And dia <= 31 And mes >= 1 And mes <= 12 And ano > 1900 Then
+            ConverteBRParaData = DateSerial(ano, mes, dia)
+            Exit Function
+        End If
+    End If
+    
+    ' Se falhou, tenta conversão direta (pode dar problema)
+    ConverteBRParaData = textoData
+    
+    On Error GoTo 0
+    
+End Function
+
 Sub CarregarVinculosCliente(ID_Cliente As Long)
 
     Dim ws As Worksheet
+    Dim wsVinc As Worksheet
     Dim ultima As Long
     Dim i As Long
+    Dim dataInicio As String
+    Dim dataFim As String
+    Dim tempoAnos As String
+    Dim seq As String
+    Dim observacoes As String
 
     Set ws = Sheets("Vinculos")
+    
+    ' Busca Seq no CSV via campo Observacoes
+    Set wsVinc = ws
 
     frmCadastro.lstVinculos.Clear
+    
+    ' Configura ListBox - 6 colunas
+    frmCadastro.lstVinculos.ColumnCount = 6
+    ' Larguras: Seq(60) | Início(94) | Fim(94) | Tipo(360) | Tempo(70) | ID_Vinculo(0-oculto)
+    frmCadastro.lstVinculos.ColumnWidths = "60 pt;94 pt;94 pt;360 pt;70 pt;0 pt"
+    
+    ' Adiciona linha de cabeçalho
+    frmCadastro.lstVinculos.AddItem ""
+    frmCadastro.lstVinculos.List(0, 0) = "Seq"
+    frmCadastro.lstVinculos.List(0, 1) = "Início"
+    frmCadastro.lstVinculos.List(0, 2) = "Fim"
+    frmCadastro.lstVinculos.List(0, 3) = "Tipo de Filiado"
+    frmCadastro.lstVinculos.List(0, 4) = "Tempo"
+    
+    ' Ajusta altura do ListBox dinamicamente
+    On Error Resume Next
+    frmCadastro.lstVinculos.IntegralHeight = False
+    On Error GoTo 0
 
     ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
 
     For i = 2 To ultima
         If ws.Cells(i, 2).Value = ID_Cliente Then
-
-            frmCadastro.lstVinculos.AddItem ws.Cells(i, 1).Value ' ID_Vinculo
-            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 1) = ws.Cells(i, 3).Value ' Inicio
-            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 2) = ws.Cells(i, 4).Value ' Fim
-            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 3) = ws.Cells(i, 5).Value ' Tipo
-            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 4) = ws.Cells(i, 6).Value ' Especial
-            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 5) = ws.Cells(i, 7).Value ' Grau
-            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 6) = ws.Cells(i, 8).Value ' Salario
+            
+            ' Formata datas explicitamente em formato brasileiro
+            If IsDate(ws.Cells(i, 3).Value) Then
+                dataInicio = Format(ws.Cells(i, 3).Value, "dd/mm/yyyy")
+            Else
+                dataInicio = ws.Cells(i, 3).Value
+            End If
+            
+            If IsDate(ws.Cells(i, 4).Value) Then
+                dataFim = Format(ws.Cells(i, 4).Value, "dd/mm/yyyy")
+            Else
+                dataFim = ws.Cells(i, 4).Value
+            End If
+            
+            ' Calcula tempo em anos
+            tempoAnos = ""
+            If IsDate(ws.Cells(i, 3).Value) Then
+                Dim dtIni As Date
+                Dim dtFim As Date
+                dtIni = ws.Cells(i, 3).Value
+                
+                If IsDate(ws.Cells(i, 4).Value) Then
+                    dtFim = ws.Cells(i, 4).Value
+                    
+                    Dim anos As Double
+                    anos = (dtFim - dtIni) / 365.25
+                    
+                    ' Só mostra se for maior que 0
+                    If anos > 0.01 Then
+                        tempoAnos = Format(anos, "0.00") & " anos"
+                    End If
+                End If
+            End If
+            
+            ' Extrai Seq das observações ou usa contador sequencial
+            seq = CStr(i - 1)
+            
+            ' Adiciona item: Seq | Início | Fim | Tipo | Tempo | ID_Vinculo(oculto)
+            frmCadastro.lstVinculos.AddItem seq
+            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 1) = dataInicio
+            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 2) = dataFim
+            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 3) = ws.Cells(i, 5).Value
+            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 4) = tempoAnos
+            frmCadastro.lstVinculos.List(frmCadastro.lstVinculos.ListCount - 1, 5) = ws.Cells(i, 1).Value ' ID_Vinculo oculto
 
         End If
     Next i
+    
+    ' Força o ListBox a mostrar o topo após carregar
+    On Error Resume Next
+    If frmCadastro.lstVinculos.ListCount > 0 Then
+        frmCadastro.lstVinculos.TopIndex = 0
+    End If
+    On Error GoTo 0
 
 End Sub
 
@@ -262,3 +376,4 @@ ProximoI:
         End If
     Next i
     
+End Sub

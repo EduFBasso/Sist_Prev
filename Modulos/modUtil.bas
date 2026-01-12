@@ -19,10 +19,18 @@ Function NovoID(tabela As String, colunaID As Long) As Long
     End If
 End Function
 
-' Converte texto vazio em zero
-Function Nz(valor)
-    If Trim(valor & "") = "" Then
-        Nz = 0
+' ============================================
+' Nz - Retorna valor padrão se nulo/vazio
+' ============================================
+' Função compatível com Access VBA para Excel
+' Retorna valorPadrao se o valor for NULL, Empty ou vazio
+' Parâmetros:
+'   valor - Valor a verificar
+'   valorPadrao - Valor a retornar se nulo (padrão = 0)
+' ============================================
+Function Nz(valor As Variant, Optional valorPadrao As Variant = 0) As Variant
+    If IsNull(valor) Or IsEmpty(valor) Or Trim(CStr(valor)) = "" Then
+        Nz = valorPadrao
     Else
         Nz = valor
     End If
