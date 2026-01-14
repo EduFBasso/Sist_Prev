@@ -18,9 +18,6 @@ Conversao_Especial_15	2.33	Fator de conversão 15 anos para comum	01/01/2026
 Salario_Minimo	1412	Salário mínimo vigente	01/01/2026
 Teto_INSS	7786.02	Teto do INSS	01/01/2026
 Indice_Reajuste	0.045	Reajuste anual estimado	01/01/2026
-
-
-Obs. Planilhas: Cadastro_Clientes, Documentos, Vinculos, Simulacoes, Config_Regras -> DataBase
-Config_Regras -> Parametros das regras de cálculo (ex.: Idade mínima, pontos, carência, etc podendo
-ser atualizados conforme mudanças na legislação)
+ModoAutoSimulacao	VERDADEIRO	Modo automático nas simulações (TRUE/FALSE)	13/01/2026
+Data_Atualizacao_INPC	13/01/2026	Data da ultima atualizacao dos indices INPC do BCB	13/01/2026
 

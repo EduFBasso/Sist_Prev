@@ -3,6 +3,8 @@
 ' ============================================================
 
 Private Sub UserForm_Initialize()
+    ' A validação principal já foi feita no frmPrincipal
+    ' Aqui apenas carrega os dados
     Call cmdBuscar_Click
 End Sub
 
@@ -16,11 +18,25 @@ Private Sub cmdBuscar_Click()
     Dim count As Long
 
     termo = LCase(Trim(Me.txtFiltro.Value))
+    
+    On Error Resume Next
     Set ws = Sheets("Cadastro_Clientes")
+    On Error GoTo 0
+    
+    If ws Is Nothing Then
+        MsgBox "Planilha 'Cadastro_Clientes' não encontrada.", vbCritical
+        Exit Sub
+    End If
 
     Me.lstResultados.Clear
 
     ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
+    
+    ' Verificar se há registros
+    If ultima < 2 Then
+        MsgBox "Nenhum cliente cadastrado.", vbInformation
+        Exit Sub
+    End If
 
     ' Criar matriz dinâmica
     ReDim resultados(1 To ultima - 1, 1 To 3)
@@ -47,7 +63,11 @@ Private Sub cmdBuscar_Click()
     Next i
 
     ' Redimensionar para o tamanho real
-    If count = 0 Then Exit Sub
+    If count = 0 Then
+        MsgBox "Nenhum resultado encontrado para: " & Me.txtFiltro.Value, vbInformation
+        Exit Sub
+    End If
+    
     ReDim Preserve resultados(1 To count, 1 To 3)
 
     ' Ordenar por nome (coluna 2)

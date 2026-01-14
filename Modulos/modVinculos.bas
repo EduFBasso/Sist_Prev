@@ -25,21 +25,38 @@ Sub SalvarVinculo(dados As Collection)
     dataInicio = ConverteBRParaData(dados("Inicio"))
     dataFim = ConverteBRParaData(dados("Fim"))
     
+    ' Ordem correta: ID_Vinculo, ID_Cliente, Data_Inicio, Data_Fim, Tipo_Vinculo,
+    '                Especial, Grau_Especial, Salario_Contribuicao, Observacoes, Data_Cadastro,
+    '                Rural, Militar, Exterior, Concomitante, Atraso, Complementar, Codigo Emp.
+    
     ws.Cells(linha, 1).Value = idV
     ws.Cells(linha, 2).Value = dados("ID_Cliente")
-    ws.Cells(linha, 3).Value = dataInicio
-    ws.Cells(linha, 4).Value = dataFim
+    
+    ' Formatar datas como texto para evitar auto-conversão do Excel
+    ws.Cells(linha, 3).NumberFormat = "@"
+    ws.Cells(linha, 3).Value = CStr(dados("Inicio"))
+    
+    ws.Cells(linha, 4).NumberFormat = "@"
+    ws.Cells(linha, 4).Value = CStr(dados("Fim"))
+    
     ws.Cells(linha, 5).Value = dados("Tipo")
     ws.Cells(linha, 6).Value = dados("Especial")
     ws.Cells(linha, 7).Value = dados("Grau")
-    ws.Cells(linha, 8).Value = dados("Rural")
-    ws.Cells(linha, 9).Value = dados("Militar")
-    ws.Cells(linha, 10).Value = dados("Exterior")
-    ws.Cells(linha, 11).Value = dados("Concomitante")
-    ws.Cells(linha, 12).Value = dados("Atraso")
-    ws.Cells(linha, 13).Value = dados("Complementar")
-    ws.Cells(linha, 14).Value = dados("Salario")
-    ws.Cells(linha, 15).Value = dados("Observacoes")
+    ws.Cells(linha, 8).Value = dados("Salario")
+    
+    ' Garantir que Observações seja salvo como texto (coluna 9)
+    ws.Cells(linha, 9).NumberFormat = "@"
+    ws.Cells(linha, 9).Value = CStr(dados("Observacoes"))
+    
+    ws.Cells(linha, 10).Value = Date  ' Data_Cadastro
+    
+    ' Garantir booleanos explícitos (não converter para texto em português)
+    ws.Cells(linha, 11).Value = CBool(dados("Rural"))
+    ws.Cells(linha, 12).Value = CBool(dados("Militar"))
+    ws.Cells(linha, 13).Value = CBool(dados("Exterior"))
+    ws.Cells(linha, 14).Value = CBool(dados("Concomitante"))
+    ws.Cells(linha, 15).Value = CBool(dados("Atraso"))
+    ws.Cells(linha, 16).Value = CBool(dados("Complementar"))
     
     Call AtualizarIndicadoresCliente(dados("ID_Cliente"))
 End Sub
@@ -293,12 +310,12 @@ Sub AtualizarIndicadoresCliente(ID_Cliente As Long)
         If wsV.Cells(i, 2).Value = ID_Cliente Then
 
             If wsV.Cells(i, 6).Value = "Sim" Then temEspecial = True
-            If wsV.Cells(i, 8).Value = True Then temRural = True
-            If wsV.Cells(i, 9).Value = True Then temMilitar = True
-            If wsV.Cells(i, 10).Value = True Then temExterior = True
-            If wsV.Cells(i, 11).Value = True Then temConcomitante = True
-            If wsV.Cells(i, 12).Value = True Then temAtraso = True
-            If wsV.Cells(i, 13).Value = True Then temComplementar = True
+            If wsV.Cells(i, 11).Value = True Then temRural = True
+            If wsV.Cells(i, 12).Value = True Then temMilitar = True
+            If wsV.Cells(i, 13).Value = True Then temExterior = True
+            If wsV.Cells(i, 14).Value = True Then temConcomitante = True
+            If wsV.Cells(i, 15).Value = True Then temAtraso = True
+            If wsV.Cells(i, 16).Value = True Then temComplementar = True
 
         End If
     Next i
@@ -331,7 +348,7 @@ Sub DetectarConcomitancia(ID_Cliente As Long)
     ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
     For i = 2 To ultima
         If ws.Cells(i, 2).Value = ID_Cliente Then
-            ws.Cells(i, 11).Value = False
+            ws.Cells(i, 14).Value = False  ' Coluna 14 = Concomitante
         End If
     Next i
     
@@ -363,9 +380,9 @@ Sub DetectarConcomitancia(ID_Cliente As Long)
                     
                     ' Verifica sobreposição: há concomitância se um período começa antes do outro terminar
                     If (inicio1 <= fim2) And (inicio2 <= fim1) Then
-                        ' Marca ambos os vínculos como concomitantes
-                        ws.Cells(linha1, 11).Value = True
-                        ws.Cells(linha2, 11).Value = True
+                        ' Marca ambos os vínculos como concomitantes (coluna 14)
+                        ws.Cells(linha1, 14).Value = True
+                        ws.Cells(linha2, 14).Value = True
                     End If
                     
 ProximoJ:
@@ -377,3 +394,68 @@ ProximoI:
     Next i
     
 End Sub
+
+' ============================================
+' SalvarVinculoComExtras - Salva vínculo com campos extras (Seq, CodigoEmp)
+' ============================================
+Sub SalvarVinculoComExtras(dados As Collection, seq As String, codigoEmp As String)
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim idV As Long
+    Dim dataInicio As Variant
+    Dim dataFim As Variant
+    
+    Set ws = Sheets("Vinculos")
+    
+    If dados("ID_Vinculo") = 0 Then
+        linha = ProximaLinha(ws)
+        idV = NovoID("Vinculos", 1)
+    Else
+        linha = BuscarLinhaVinculo(dados("ID_Vinculo"))
+        idV = dados("ID_Vinculo")
+    End If
+    
+    ' Converte datas do formato brasileiro (DD/MM/YYYY) corretamente
+    dataInicio = ConverteBRParaData(dados("Inicio"))
+    dataFim = ConverteBRParaData(dados("Fim"))
+    
+    ' Ordem correta: ID_Vinculo, ID_Cliente, Data_Inicio, Data_Fim, Tipo_Vinculo,
+    '                Especial, Grau_Especial, Salario_Contribuicao, Observacoes, Data_Cadastro,
+    '                Rural, Militar, Exterior, Concomitante, Atraso, Complementar, Código Emp.
+    
+    ws.Cells(linha, 1).Value = idV
+    ws.Cells(linha, 2).Value = dados("ID_Cliente")
+    
+    ' Formatar datas como texto para evitar auto-conversão do Excel
+    ws.Cells(linha, 3).NumberFormat = "@"
+    ws.Cells(linha, 3).Value = CStr(dados("Inicio"))
+    
+    ws.Cells(linha, 4).NumberFormat = "@"
+    ws.Cells(linha, 4).Value = CStr(dados("Fim"))
+    
+    ws.Cells(linha, 5).Value = dados("Tipo")
+    ws.Cells(linha, 6).Value = dados("Especial")
+    ws.Cells(linha, 7).Value = dados("Grau")
+    ws.Cells(linha, 8).Value = dados("Salario")
+    
+    ' Garantir que Observações seja salvo como texto (coluna 9)
+    ws.Cells(linha, 9).NumberFormat = "@"
+    ws.Cells(linha, 9).Value = CStr(dados("Observacoes"))
+    
+    ws.Cells(linha, 10).Value = Date  ' Data_Cadastro
+    
+    ' Garantir booleanos explícitos (não converter para texto em português)
+    ws.Cells(linha, 11).Value = CBool(dados("Rural"))
+    ws.Cells(linha, 12).Value = CBool(dados("Militar"))
+    ws.Cells(linha, 13).Value = CBool(dados("Exterior"))
+    ws.Cells(linha, 14).Value = CBool(dados("Concomitante"))
+    ws.Cells(linha, 15).Value = CBool(dados("Atraso"))
+    ws.Cells(linha, 16).Value = CBool(dados("Complementar"))
+    
+    ' Dados extras do CNIS (colunas 17-18)
+    ws.Cells(linha, 17).Value = codigoEmp    ' Código da Empresa (CNPJ)
+    ws.Cells(linha, 18).Value = seq          ' Seq do CNIS
+    
+    Call AtualizarIndicadoresCliente(dados("ID_Cliente"))
+End Sub
+

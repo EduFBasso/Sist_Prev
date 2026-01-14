@@ -5,6 +5,33 @@
 Option Explicit
 
 Private Sub cmdBuscarCliente_Click()
+    ' Validar se há clientes cadastrados ANTES de abrir o formulário
+    Dim ws As Worksheet
+    Dim ultima As Long
+    
+    On Error Resume Next
+    Set ws = Sheets("Cadastro_Clientes")
+    On Error GoTo 0
+    
+    If ws Is Nothing Then
+        MsgBox "Planilha 'Cadastro_Clientes' não encontrada." & vbCrLf & _
+               "O sistema precisa dessa planilha para funcionar.", vbCritical, "Erro"
+        Exit Sub
+    End If
+    
+    ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
+    
+    ' Se não há clientes cadastrados (apenas cabeçalho na linha 1)
+    If ultima < 2 Then
+        MsgBox "⚠️  Nenhum cliente cadastrado!" & vbCrLf & vbCrLf & _
+               "Para começar:" & vbCrLf & _
+               "1. Use o botão 'Novo Cliente' para cadastrar manualmente, OU" & vbCrLf & _
+               "2. Importe dados do CNIS usando 'Importar CNIS'", _
+               vbInformation, "Cadastro Vazio"
+        Exit Sub
+    End If
+    
+    ' Se há clientes, abrir o formulário de busca
     frmBusca.Show
 End Sub
 
@@ -26,139 +53,48 @@ Private Sub cmdSair_Click()
 End Sub
 
 Private Sub cmdImportarCNIS_Click()
+    ' Usa a nova função automática que importa tudo de uma vez
+    ' (dados do cliente + vínculos + remunerações)
+    Call ImportarCNIS_Automatico
+End Sub
 
-    Dim caminho As Variant
-    Dim novoID As Long
-    Dim caminhoDados As String
-    Dim fNum As Integer
-    Dim linha As String
-    Dim partes() As String
-
-    ' Seleciona o arquivo CSV de vínculos estruturados
-    caminho = Application.GetOpenFilename("Arquivos CSV (*.csv),*.csv", , _
-                                          "Selecione o arquivo de vínculos do CNIS")
-    If caminho = False Then Exit Sub
-
-    ' Gera um novo ID de cliente baseado na planilha Cadastro_Clientes
-    novoID = GerarNovoID()
-
-    ' Importa vínculos para esse novo cliente
-    Call ImportarVinculosDeCSV(CStr(caminho), novoID)
-
-    ' Tenta carregar dados do cliente a partir do CSV de cabeçalho
-    ' O arquivo selecionado é *_vinculos_estruturado.csv
-    ' O arquivo de dados é *_dados_cliente.csv (mesmo prefixo base)
-    Dim caminhoBase As String
-    caminhoBase = CStr(caminho)
-    ' Remove "_vinculos_estruturado.csv" se presente
-    If InStr(caminhoBase, "_vinculos_estruturado.csv") > 0 Then
-        caminhoBase = Replace(caminhoBase, "_vinculos_estruturado.csv", "")
-    Else
-        ' Remove extensão .csv
-        caminhoBase = Left$(caminhoBase, InStrRev(caminhoBase, ".") - 1)
-    End If
-    caminhoDados = caminhoBase & "_dados_cliente.csv"
-
-    ' 1. Tenta carregar dados do cliente a partir do CSV de cabeçalho
-    Dim dadosCliente As Collection
-    Set dadosCliente = Nothing
-
-    If Dir(caminhoDados) <> "" Then
-        fNum = FreeFile
-        On Error GoTo FimLeitura
-        Open caminhoDados For Input As #fNum
-        ' Pula cabeçalho
-        Line Input #fNum, linha
-        If Not EOF(fNum) Then
-            Line Input #fNum, linha
-            If Trim$(linha) <> "" Then
-                partes = Split(linha, ";")
-                ' Esperado: NIT;CPF;Nome;DataNascimento;NomeMae
-                If UBound(partes) >= 4 Then
-                    Set dadosCliente = New Collection
-                    dadosCliente.Add novoID, "ID"
-                    dadosCliente.Add partes(2), "Nome"
-                    dadosCliente.Add partes(1), "CPF"
-                    dadosCliente.Add partes(0), "PIS"
-                    dadosCliente.Add "", "RG"
-                    dadosCliente.Add "", "Orgao"
-                    dadosCliente.Add partes(3), "Nascimento"
-                    dadosCliente.Add "", "Sexo"
-                    dadosCliente.Add "", "EstadoCivil"
-                    dadosCliente.Add "", "Telefone"
-                    dadosCliente.Add "", "Celular"
-                    dadosCliente.Add "", "Email"
-                    dadosCliente.Add "", "CEP"
-                    dadosCliente.Add "", "Endereco"
-                    dadosCliente.Add "", "Numero"
-                    dadosCliente.Add "", "Complemento"
-                    dadosCliente.Add "", "Bairro"
-                    dadosCliente.Add "", "Cidade"
-                    dadosCliente.Add "", "UF"
-                    dadosCliente.Add partes(4), "Filiacao"
-                    dadosCliente.Add "", "TipoSegurado"
-                    dadosCliente.Add "Não", "Especial"
-                    dadosCliente.Add False, "Rural"
-                    dadosCliente.Add False, "Militar"
-                    dadosCliente.Add False, "Exterior"
-                    dadosCliente.Add False, "Concomitante"
-                    dadosCliente.Add False, "Atraso"
-                    dadosCliente.Add False, "Complementar"
-                    dadosCliente.Add "Importado do CNIS", "Observacoes"
-                End If
-            End If
-        End If
-FimLeitura:
-        On Error Resume Next
-        Close #fNum
-        On Error GoTo 0
-    End If
-
-    ' 2. Salva o cliente na planilha antes de abrir o formulário
-    If Not dadosCliente Is Nothing Then
-        Call SalvarCliente(dadosCliente)
-    Else
-        ' Se não houver dados, cria cliente vazio
-        Set dadosCliente = New Collection
-        dadosCliente.Add novoID, "ID"
-        dadosCliente.Add "", "Nome"
-        dadosCliente.Add "", "CPF"
-        dadosCliente.Add "", "PIS"
-        dadosCliente.Add "", "RG"
-        dadosCliente.Add "", "Orgao"
-        dadosCliente.Add "", "Nascimento"
-        dadosCliente.Add "", "Sexo"
-        dadosCliente.Add "", "EstadoCivil"
-        dadosCliente.Add "", "Telefone"
-        dadosCliente.Add "", "Celular"
-        dadosCliente.Add "", "Email"
-        dadosCliente.Add "", "CEP"
-        dadosCliente.Add "", "Endereco"
-        dadosCliente.Add "", "Numero"
-        dadosCliente.Add "", "Complemento"
-        dadosCliente.Add "", "Bairro"
-        dadosCliente.Add "", "Cidade"
-        dadosCliente.Add "", "UF"
-        dadosCliente.Add "", "Filiacao"
-        dadosCliente.Add "", "TipoSegurado"
-        dadosCliente.Add "Não", "Especial"
-        dadosCliente.Add False, "Rural"
-        dadosCliente.Add False, "Militar"
-        dadosCliente.Add False, "Exterior"
-        dadosCliente.Add False, "Concomitante"
-        dadosCliente.Add False, "Atraso"
-        dadosCliente.Add False, "Complementar"
-        dadosCliente.Add "Importado do CNIS", "Observacoes"
-        Call SalvarCliente(dadosCliente)
-    End If
-
-    ' 3. Carrega o formulário (inicializa sem mostrar), preenche os dados e então exibe
-    Load frmCadastro
-    Call CarregarCliente(novoID)
+Private Sub cmdAtualizarINPC_Click()
+    ' Atualizar índices INPC do Banco Central
+    Dim sucesso As Boolean
     
-    MsgBox "Vínculos importados com sucesso para o cliente ID " & novoID & ". Complete os dados cadastrais.", _
-           vbInformation
+    sucesso = AtualizarIndicesINPC()
     
-    frmCadastro.Show
+    If sucesso Then
+        ' Atualizar label com a data
+        Call AtualizarLabelDataINPC
+        
+        MsgBox "Índices INPC atualizados com sucesso!" & vbCrLf & vbCrLf & _
+               "Data: " & GetParametro("Data_Atualizacao_INPC") & vbCrLf & vbCrLf & _
+               "Os cálculos de simulação já estão usando os novos fatores de correção monetária.", _
+               vbInformation, "Atualização Concluída"
+    Else
+        MsgBox "Erro ao atualizar índices INPC." & vbCrLf & _
+               "Verifique sua conexão com a internet e tente novamente.", _
+               vbCritical, "Erro"
+    End If
+End Sub
 
+Private Sub UserForm_Initialize()
+    ' Atualizar label da data ao abrir o formulário
+    Call AtualizarLabelDataINPC
+End Sub
+
+Private Sub AtualizarLabelDataINPC()
+    ' Atualiza o label com a última data de atualização
+    Dim dataAtual As String
+    
+    dataAtual = GetParametro("Data_Atualizacao_INPC")
+    
+    If dataAtual <> "" And Not IsNull(dataAtual) Then
+        Me.lblDataINPC.Caption = "Última atualização INPC: " & dataAtual
+        Me.lblDataINPC.ForeColor = RGB(0, 128, 0)  ' Verde
+    Else
+        Me.lblDataINPC.Caption = "INPC não atualizado - clique no botão acima"
+        Me.lblDataINPC.ForeColor = RGB(255, 0, 0)  ' Vermelho
+    End If
 End Sub

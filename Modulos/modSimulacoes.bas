@@ -4,6 +4,9 @@
 
 Option Explicit
 
+' Variável module-level para forçar reload do cache INPC
+Private m_ForcarReloadINPC As Boolean
+
 Function CalcularTempo(ID_Cliente As Long) As Double
     Dim ws As Worksheet
     Dim ultima As Long
@@ -20,7 +23,7 @@ Function CalcularTempo(ID_Cliente As Long) As Double
 
     Set ws = Sheets("Vinculos")
 
-    ultima = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
 
     For i = 2 To ultima
         If ws.Cells(i, 2).Value = ID_Cliente Then
@@ -110,7 +113,7 @@ Function CalcularTempoAte(ID_Cliente As Long, dataLimite As Date) As Double
 
     Set ws = Sheets("Vinculos")
 
-    ultima = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
 
     For i = 2 To ultima
         If ws.Cells(i, 2).Value = ID_Cliente Then
@@ -234,7 +237,7 @@ Function CalcularTempoEspecial(ID_Cliente As Long) As Double
 
     Set ws = Sheets("Vinculos")
 
-    ultima = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
 
     For i = 2 To ultima
         If ws.Cells(i, 2).Value = ID_Cliente Then
@@ -685,9 +688,13 @@ Function CalcularValorBeneficio(ID_Cliente As Long, tempoContribuicao As Double)
     coefTotal = coefInicial + (anosExcedentes * percAcrescimo)
     If coefTotal > 100 Then coefTotal = 100
     
-    ' Estimar média salarial (simplificação: usar teto como referência)
-    ' Em implementação real, deveria calcular a média dos 80% maiores salários
-    mediaSalarialEstimada = tetoINSS * 0.6  ' Estimativa conservadora
+    ' Calcular média salarial real dos 80% maiores salários
+    mediaSalarialEstimada = CalcularMediaSalarios(ID_Cliente)
+    
+    ' Se não houver remunerações, usar estimativa conservadora
+    If mediaSalarialEstimada = 0 Then
+        mediaSalarialEstimada = tetoINSS * 0.6  ' Estimativa: 60% do teto
+    End If
     
     ' Calcular valor do benefício
     valorBeneficio = mediaSalarialEstimada * (coefTotal / 100)
@@ -1050,3 +1057,251 @@ Function FormatarTempoExtenso(anos As Long, meses As Long) As String
     FormatarTempoExtenso = resultado
 End Function
 
+Function CalcularMediaSalarios(ID_Cliente As Long) As Double
+    ' Calcula a média dos 80% maiores salários do cliente
+    ' baseado nas remunerações importadas do CNIS
+    ' COM APLICACAO DE CORRECAO INPC
+    
+    Dim ws As Worksheet
+    Dim ultima As Long
+    Dim i As Long
+    Dim salarios() As Double
+    Dim n As Long
+    Dim total As Double
+    Dim quantidadeConsiderar As Long
+    
+    On Error Resume Next
+    Set ws = Sheets("Remuneracoes")
+    On Error GoTo 0
+    
+    If ws Is Nothing Then
+        CalcularMediaSalarios = 0
+        Exit Function
+    End If
+    
+    ' Coletar todos os salários do cliente COM CORRECAO INPC
+    ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
+    n = 0
+    
+    For i = 2 To ultima
+        If ws.Cells(i, 3).Value = ID_Cliente Then
+            Dim valor As Double
+            Dim competencia As String
+            Dim valorCorrigido As Double
+            
+            valor = ws.Cells(i, 5).Value          ' Coluna E = Valor
+            competencia = ws.Cells(i, 4).Value    ' Coluna D = Competencia (MM/YYYY)
+            
+            If valor > 0 Then
+                ' Aplicar correcao INPC ao valor
+                valorCorrigido = AplicarCorrecaoINPC(valor, competencia)
+                
+                n = n + 1
+                ReDim Preserve salarios(1 To n)
+                salarios(n) = valorCorrigido
+            End If
+        End If
+    Next i
+    
+    If n = 0 Then
+        CalcularMediaSalarios = 0
+        Exit Function
+    End If
+    
+    ' Ordenar salários em ordem decrescente (bubble sort simples)
+    Dim j As Long
+    Dim temp As Double
+    
+    For i = 1 To n - 1
+        For j = i + 1 To n
+            If salarios(j) > salarios(i) Then
+                temp = salarios(i)
+                salarios(i) = salarios(j)
+                salarios(j) = temp
+            End If
+        Next j
+    Next i
+    
+    ' Calcular média dos 80% maiores
+    quantidadeConsiderar = Application.WorksheetFunction.Max(1, Int(n * 0.8))
+    
+    total = 0
+    For i = 1 To quantidadeConsiderar
+        total = total + salarios(i)
+    Next i
+    
+    CalcularMediaSalarios = total / quantidadeConsiderar
+    
+End Function
+
+' ================================================================================
+' FUNCAO: AtualizarIndicesINPC
+' DESCRICAO: Executa script Python para baixar indices INPC do BCB e atualizar
+'            fatores de correcao monetaria
+' RETORNO: True se sucesso, False se erro
+' ================================================================================
+Public Function AtualizarIndicesINPC() As Boolean
+    On Error GoTo ErroHandler
+    
+    Dim caminhoExcel As String
+    Dim caminhoExe As String
+    Dim caminhoScript As String
+    Dim comando As String
+    Dim resultado As Long
+    
+    ' Obter caminho do arquivo Excel
+    caminhoExcel = ThisWorkbook.Path
+    
+    ' Detectar modo: PRODUCAO (.exe) ou DESENVOLVIMENTO (.py)
+    caminhoExe = caminhoExcel & Application.PathSeparator & "bin" & _
+                 Application.PathSeparator & "atualizar_inpc.exe"
+    caminhoScript = caminhoExcel & Application.PathSeparator & "atualizar_inpc.py"
+    
+    If Dir(caminhoExe) <> "" Then
+        ' MODO PRODUCAO: Executavel standalone (distribuicao ao cliente)
+        comando = """" & caminhoExe & """"
+    ElseIf Dir(caminhoScript) <> "" Then
+        ' MODO DESENVOLVIMENTO: Script Python (requer Python instalado)
+        comando = "python """ & caminhoScript & """"
+    Else
+        MsgBox "Erro: Nenhum executavel encontrado!" & vbCrLf & vbCrLf & _
+               "Procurado em:" & vbCrLf & _
+               "1) " & caminhoExe & vbCrLf & _
+               "2) " & caminhoScript, vbCritical, "Erro"
+        AtualizarIndicesINPC = False
+        Exit Function
+    End If
+    
+    ' Informar usuario
+    Application.ScreenUpdating = False
+    Application.StatusBar = "Conectando ao Banco Central do Brasil..."
+    
+    ' Executar script Python ou .exe
+    resultado = Shell(comando, vbNormalFocus)
+    
+    ' Aguardar alguns segundos para conclusao
+    Application.Wait (Now + TimeValue("00:00:05"))
+    
+    ' Verificar se arquivo foi criado
+    Dim arquivoSaida As String
+    arquivoSaida = caminhoExcel & Application.PathSeparator & "saida" & _
+                   Application.PathSeparator & "inpc_fatores.csv"
+    
+    If Dir(arquivoSaida) = "" Then
+        MsgBox "Erro: Arquivo inpc_fatores.csv nao foi gerado!" & vbCrLf & _
+               "Verifique a execucao do script Python.", vbCritical, "Erro"
+        AtualizarIndicesINPC = False
+        Application.StatusBar = False
+        Application.ScreenUpdating = True
+        Exit Function
+    End If
+    
+    ' Atualizar parametro no Config_Regras
+    Call SetParametro("Data_Atualizacao_INPC", CStr(Date), _
+                      "Data da ultima atualizacao dos indices INPC do BCB")
+    
+    ' IMPORTANTE: Limpar cache do AplicarCorrecaoINPC para forcar reload do CSV
+    Call LimparCacheINPC
+    
+    ' Restaurar interface
+    Application.StatusBar = False
+    Application.ScreenUpdating = True
+    
+    ' Sucesso
+    MsgBox "Indices INPC atualizados com sucesso!" & vbCrLf & _
+           "Data: " & Format(Date, "dd/mm/yyyy") & vbCrLf & vbCrLf & _
+           "Os calculos de simulacao agora usarao valores corrigidos.", _
+           vbInformation, "Atualizacao Concluida"
+    
+    AtualizarIndicesINPC = True
+    Exit Function
+    
+ErroHandler:
+    MsgBox "Erro ao atualizar indices INPC:" & vbCrLf & _
+           "Numero: " & Err.Number & vbCrLf & _
+           "Descricao: " & Err.Description, vbCritical, "Erro"
+    Application.StatusBar = False
+    Application.ScreenUpdating = True
+    AtualizarIndicesINPC = False
+End Function
+
+' ================================================================================
+' FUNCAO: AplicarCorrecaoINPC
+' DESCRICAO: Aplica correcao monetaria INPC a um valor baseado na competencia
+' PARAMETROS:
+'   - valor: valor original a ser corrigido
+'   - competencia: data no formato MM/YYYY
+' RETORNO: Valor corrigido ou valor original se fator nao encontrado
+' ================================================================================
+Private Function AplicarCorrecaoINPC(ByVal valor As Double, ByVal competencia As String) As Double
+    On Error Resume Next
+    
+    Static fatoresINPC As Object ' Dictionary para cache
+    Static ultimaLeitura As Date
+    
+    ' Inicializar dictionary se necessario, passou mais de 1 dia, ou foi solicitado reload
+    If fatoresINPC Is Nothing Or DateDiff("d", ultimaLeitura, Date) > 0 Or m_ForcarReloadINPC Then
+        Set fatoresINPC = CreateObject("Scripting.Dictionary")
+        m_ForcarReloadINPC = False ' Resetar flag
+        
+        Dim caminhoArquivo As String
+        Dim linha As String
+        Dim partes() As String
+        Dim fileNum As Integer
+        
+        caminhoArquivo = ThisWorkbook.Path & Application.PathSeparator & "saida" & _
+                        Application.PathSeparator & "inpc_fatores.csv"
+        
+        ' Verificar se arquivo existe
+        If Dir(caminhoArquivo) = "" Then
+            ' Arquivo nao existe, retornar valor sem correcao
+            AplicarCorrecaoINPC = valor
+            Exit Function
+        End If
+        
+        ' Ler arquivo CSV
+        fileNum = FreeFile
+        Open caminhoArquivo For Input As #fileNum
+        
+        ' Pular cabecalho
+        Line Input #fileNum, linha
+        
+        Dim contadorLinhas As Integer
+        contadorLinhas = 0
+        
+        ' Ler fatores
+        Do While Not EOF(fileNum)
+            Line Input #fileNum, linha
+            
+            If Len(Trim(linha)) > 0 Then
+                partes = Split(linha, ";")
+                If UBound(partes) >= 1 Then
+                    ' Adicionar ao dictionary: chave=competencia, valor=fator
+                    fatoresINPC(Trim(partes(0))) = CDbl(Replace(partes(1), ".", ","))
+                    contadorLinhas = contadorLinhas + 1
+                End If
+            End If
+        Loop
+        
+        Close #fileNum
+        ultimaLeitura = Date
+    End If
+    
+    ' Aplicar fator se existir
+    If fatoresINPC.Exists(competencia) Then
+        AplicarCorrecaoINPC = valor * fatoresINPC(competencia)
+    Else
+        ' Fator nao encontrado, retornar valor original
+        AplicarCorrecaoINPC = valor
+    End If
+    
+End Function
+
+' ================================================================================
+' FUNCAO: LimparCacheINPC
+' DESCRICAO: Limpa cache de fatores INPC forçando reload do CSV na próxima consulta
+' ================================================================================
+Public Sub LimparCacheINPC()
+    ' Define flag para forçar reload na próxima chamada de AplicarCorrecaoINPC
+    m_ForcarReloadINPC = True
+End Sub

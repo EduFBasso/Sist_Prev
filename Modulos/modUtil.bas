@@ -35,3 +35,40 @@ Function Nz(valor As Variant, Optional valorPadrao As Variant = 0) As Variant
         Nz = valor
     End If
 End Function
+
+' ============================================
+' GetDadosEmpresa - Busca dados da empresa
+' ============================================
+' Retorna valor de configuração da planilha Config_Empresa
+' Parâmetros:
+'   campo - Nome do parâmetro (ex: "Razao_Social", "CNPJ", "Telefone")
+' Retorna: String com o valor ou "" se não encontrado
+' ============================================
+Function GetDadosEmpresa(campo As String) As String
+    Dim ws As Worksheet
+    Dim i As Long
+    Dim ultimaLinha As Long
+    
+    On Error Resume Next
+    Set ws = Sheets("Config_Empresa")
+    On Error GoTo 0
+    
+    ' Se planilha não existe, retornar vazio
+    If ws Is Nothing Then
+        GetDadosEmpresa = ""
+        Exit Function
+    End If
+    
+    ' Buscar campo na coluna A (comparação case-insensitive)
+    ultimaLinha = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    
+    For i = 2 To ultimaLinha
+        If UCase(Trim(ws.Cells(i, 1).Value)) = UCase(Trim(campo)) Then
+            GetDadosEmpresa = Trim(ws.Cells(i, 2).Value)
+            Exit Function
+        End If
+    Next i
+    
+    ' Campo não encontrado
+    GetDadosEmpresa = ""
+End Function

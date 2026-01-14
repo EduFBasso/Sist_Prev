@@ -59,12 +59,18 @@ Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
     Dim separador As String
     
     ' Detectar separador (Windows \ ou macOS/Linux /)
-    If InStr(caminho, "\\") > 0 Then
-        separador = "\\"
-        posUltimaBarra = InStrRev(caminho, "\\")
+    If InStr(caminho, "\") > 0 Then
+        separador = "\"
+        posUltimaBarra = InStrRev(caminho, "\")
     Else
         separador = "/"
         posUltimaBarra = InStrRev(caminho, "/")
+    End If
+    
+    ' Validar se encontrou separador
+    If posUltimaBarra = 0 Then
+        MsgBox "Caminho de arquivo inválido: " & caminho, vbCritical
+        Exit Sub
     End If
     
     pasta = Left(caminho, posUltimaBarra)
@@ -93,11 +99,16 @@ Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
     
     ' Remover separador final se existir
     Dim pastaSemSeparador As String
-    pastaSemSeparador = Left(pasta, Len(pasta) - 1)
+    
+    If Len(pasta) > 1 Then
+        pastaSemSeparador = Left(pasta, Len(pasta) - 1)
+    Else
+        pastaSemSeparador = pasta
+    End If
     
     ' Encontrar separador anterior para pegar nome da pasta
-    If separador = "\\" Then
-        posAntepenultimaBarra = InStrRev(pastaSemSeparador, "\\")
+    If separador = "\" Then
+        posAntepenultimaBarra = InStrRev(pastaSemSeparador, "\")
     Else
         posAntepenultimaBarra = InStrRev(pastaSemSeparador, "/")
     End If
@@ -187,14 +198,59 @@ Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
     
     ' Se não existir, criar novo cliente
     If ID_Cliente = 0 Then
-        ID_Cliente = ultima  ' Novo ID
+        ' Gerar próximo ID disponível
+        If ultima < 2 Then
+            ID_Cliente = 1
+        Else
+            ID_Cliente = wsCadastro.Cells(ultima, 1).Value + 1
+        End If
         
-        wsCadastro.Cells(ultima + 1, 1).Value = ID_Cliente
-        wsCadastro.Cells(ultima + 1, 2).Value = nomeCliente
-        wsCadastro.Cells(ultima + 1, 3).Value = cpfCliente
-        wsCadastro.Cells(ultima + 1, 4).Value = dataNascCliente
-        wsCadastro.Cells(ultima + 1, 5).Value = nomeMaeCliente
-        wsCadastro.Cells(ultima + 1, 6).Value = nitCliente
+        ' Inserir na próxima linha disponível
+        Dim novaLinha As Long
+        novaLinha = ultima + 1
+        
+        wsCadastro.Cells(novaLinha, 1).Value = ID_Cliente
+        wsCadastro.Cells(novaLinha, 2).Value = nomeCliente
+        wsCadastro.Cells(novaLinha, 3).Value = cpfCliente
+        wsCadastro.Cells(novaLinha, 4).Value = nitCliente
+        wsCadastro.Cells(novaLinha, 5).Value = ""  ' RG
+        wsCadastro.Cells(novaLinha, 6).Value = ""  ' Orgão
+        
+        ' Data de nascimento como texto para evitar auto-conversão
+        wsCadastro.Cells(novaLinha, 7).NumberFormat = "@"
+        wsCadastro.Cells(novaLinha, 7).Value = dataNascCliente
+        
+        wsCadastro.Cells(novaLinha, 8).Value = ""  ' Sexo
+        wsCadastro.Cells(novaLinha, 9).Value = ""  ' Estado Civil
+        wsCadastro.Cells(novaLinha, 10).Value = ""  ' Telefone
+        wsCadastro.Cells(novaLinha, 11).Value = ""  ' Celular
+        wsCadastro.Cells(novaLinha, 12).Value = ""  ' Email
+        wsCadastro.Cells(novaLinha, 13).Value = ""  ' CEP
+        wsCadastro.Cells(novaLinha, 14).Value = ""  ' Endereço
+        wsCadastro.Cells(novaLinha, 15).Value = ""  ' Número
+        wsCadastro.Cells(novaLinha, 16).Value = ""  ' Complemento
+        wsCadastro.Cells(novaLinha, 17).Value = ""  ' Bairro
+        wsCadastro.Cells(novaLinha, 18).Value = ""  ' Cidade
+        wsCadastro.Cells(novaLinha, 19).Value = ""  ' UF
+        wsCadastro.Cells(novaLinha, 20).Value = nomeMaeCliente  ' Filiação (Nome da Mãe)
+        wsCadastro.Cells(novaLinha, 21).Value = ""  ' Tipo Segurado
+        wsCadastro.Cells(novaLinha, 22).Value = "Não"  ' Especial
+        wsCadastro.Cells(novaLinha, 23).Value = False  ' Rural
+        wsCadastro.Cells(novaLinha, 24).Value = False  ' Militar
+        wsCadastro.Cells(novaLinha, 25).Value = False  ' Exterior
+        wsCadastro.Cells(novaLinha, 26).Value = False  ' Concomitante
+        wsCadastro.Cells(novaLinha, 27).Value = False  ' Atraso
+        wsCadastro.Cells(novaLinha, 28).Value = False  ' Complementar
+        wsCadastro.Cells(novaLinha, 29).Value = "Importado do CNIS"  ' Observações
+        
+        ' Calcular idade automaticamente (coluna 30)
+        On Error Resume Next
+        If IsDate(dataNascCliente) Then
+            wsCadastro.Cells(novaLinha, 30).Value = CalcularIdade(CDate(dataNascCliente))
+        Else
+            wsCadastro.Cells(novaLinha, 30).Value = ""
+        End If
+        On Error GoTo 0
         
         MsgBox "Novo cliente criado: " & nomeCliente & " (ID " & ID_Cliente & ")", vbInformation
     Else
@@ -223,14 +279,18 @@ Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
     End If
     
     ' ========================================
-    ' CONCLUÍDO
+    ' CONCLUÍDO - Abrir frmCadastro
     ' ========================================
     
     MsgBox "✅ IMPORTAÇÃO CONCLUÍDA!" & vbCrLf & vbCrLf & _
            "Cliente: " & nomeCliente & vbCrLf & _
            "ID: " & ID_Cliente & vbCrLf & _
            "CPF: " & cpfCliente & vbCrLf & vbCrLf & _
-           "Use o formulário de Busca para localizar o cliente.", vbInformation, "Importação CNIS"
+           "O formulário de cadastro será aberto para completar os dados.", vbInformation, "Importação CNIS"
+    
+    ' Carregar e exibir formulário de cadastro
+    Call CarregarCliente(ID_Cliente)
+    frmCadastro.Show
     
 End Sub
 
@@ -301,16 +361,25 @@ Sub ImportarVinculosDeCSV(caminhoCSV As String, ID_Cliente As Long)
                     dados.Add partes(6), "Tipo"
                     dados.Add "Não", "Especial"
                     dados.Add "", "Grau"
+                    dados.Add 0, "Salario"
+                    
+                    ' Garantir que Observações seja texto
+                    Dim obsTexto As String
+                    If UBound(partes) >= 5 Then
+                        obsTexto = "Importado do CNIS - " & Trim(partes(5))
+                    Else
+                        obsTexto = "Importado do CNIS"
+                    End If
+                    dados.Add obsTexto, "Observacoes"
+                    
                     dados.Add False, "Rural"
                     dados.Add False, "Militar"
                     dados.Add False, "Exterior"
                     dados.Add False, "Concomitante"
                     dados.Add False, "Atraso"
                     dados.Add False, "Complementar"
-                    dados.Add 0, "Salario"
-                    dados.Add "Importado do CNIS - " & partes(5), "Observacoes"
 
-                    Call SalvarVinculo(dados)
+                    Call SalvarVinculoComExtras(dados, partes(2), partes(4))
                 End If
             End If
         End If
@@ -385,6 +454,10 @@ Sub ImportarRemuneracoesDeCSV(caminhoCSV As String, ID_Cliente As Long)
     
     primeiraLinha = True
     totalImportado = 0
+    Dim totalProcessado As Long
+    Dim totalNaoEncontrado As Long
+    totalProcessado = 0
+    totalNaoEncontrado = 0
     
     Do While Not EOF(fNum)
         Line Input #fNum, linha
@@ -397,6 +470,8 @@ Sub ImportarRemuneracoesDeCSV(caminhoCSV As String, ID_Cliente As Long)
                 
                 ' CSV: Pagina, Seq, CodigoEmp, Competencia, Remuneracao, Indicadores
                 If UBound(partes) >= 4 Then
+                    totalProcessado = totalProcessado + 1
+                    
                     seq = Trim(partes(1))
                     codigoEmp = Trim(partes(2))
                     competencia = Trim(partes(3))
@@ -408,18 +483,18 @@ Sub ImportarRemuneracoesDeCSV(caminhoCSV As String, ID_Cliente As Long)
                         indicadores = ""
                     End If
                     
-                    ' Buscar o ID_Vinculo correspondente a este código de empresa e cliente
+                    ' Buscar o ID_Vinculo correspondente a esta Seq e cliente
                     ID_Vinculo = 0
                     ultimaV = wsVinculos.Cells(wsVinculos.Rows.Count, 1).End(xlUp).Row
                     
                     For i = 2 To ultimaV
-                        ' Coluna 2 = ID_Cliente
+                        ' Coluna 2 = ID_Cliente, Coluna 18 = Seq
                         If wsVinculos.Cells(i, 2).Value = ID_Cliente Then
-                            ' Verificar se as observações contêm o código da empresa
-                            Dim obs As String
-                            obs = CStr(wsVinculos.Cells(i, 15).Value)
+                            ' Verificar se o Seq corresponde
+                            Dim seqVinculo As String
+                            seqVinculo = CStr(wsVinculos.Cells(i, 18).Value)
                             
-                            If InStr(1, obs, codigoEmp, vbTextCompare) > 0 Then
+                            If Trim(seqVinculo) = Trim(seq) Then
                                 ID_Vinculo = wsVinculos.Cells(i, 1).Value
                                 Exit For
                             End If
@@ -458,14 +533,25 @@ Sub ImportarRemuneracoesDeCSV(caminhoCSV As String, ID_Cliente As Long)
                             wsRemuneracoes.Cells(novaLinha, 1).Value = novoID
                             wsRemuneracoes.Cells(novaLinha, 2).Value = ID_Vinculo
                             wsRemuneracoes.Cells(novaLinha, 3).Value = ID_Cliente
+                            
+                            ' Competencia como texto (não deixar Excel converter em data)
+                            wsRemuneracoes.Cells(novaLinha, 4).NumberFormat = "@"
                             wsRemuneracoes.Cells(novaLinha, 4).Value = competencia
-                            wsRemuneracoes.Cells(novaLinha, 5).Value = CDbl(Replace(remuneracao, ",", "."))
+                            
+' Valor com 2 casas decimais - CSV usa ponto, Excel BR usa vírgula
+            Dim valorDecimal As Double
+            valorDecimal = CDbl(Replace(remuneracao, ".", ","))
+                            wsRemuneracoes.Cells(novaLinha, 5).NumberFormat = "0.00"
+                            wsRemuneracoes.Cells(novaLinha, 5).Value = valorDecimal
+                            
                             wsRemuneracoes.Cells(novaLinha, 6).Value = indicadores
                             wsRemuneracoes.Cells(novaLinha, 7).Value = seq
                             wsRemuneracoes.Cells(novaLinha, 8).Value = codigoEmp
                             
                             totalImportado = totalImportado + 1
                         End If
+                    Else
+                        totalNaoEncontrado = totalNaoEncontrado + 1
                     End If
                 End If
             End If
@@ -474,7 +560,10 @@ Sub ImportarRemuneracoesDeCSV(caminhoCSV As String, ID_Cliente As Long)
     
     Close #fNum
     
-    MsgBox "Importação concluída: " & totalImportado & " remunerações importadas.", vbInformation
+    MsgBox "Importação concluída:" & vbCrLf & _
+           "• Linhas processadas: " & totalProcessado & vbCrLf & _
+           "• Remunerações importadas: " & totalImportado & vbCrLf & _
+           "• Vínculos não encontrados: " & totalNaoEncontrado, vbInformation
     
 End Sub
 
