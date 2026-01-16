@@ -4,6 +4,11 @@
 
 Private Sub UserForm_Initialize()
 
+    ' Alterar caption do label para deixar claro que é informativo
+    On Error Resume Next
+    Me.lblSalario.Caption = "Último Salário:"
+    On Error GoTo 0
+
     ' Tipo de vínculo
     With Me.cboTipo
         .Clear
@@ -78,14 +83,18 @@ Private Function ColetarDados() As Collection
     c.Add Me.cboTipo.Value, "Tipo"
     c.Add Me.cboEspecial.Value, "Especial"
     c.Add Me.cboGrau.Value, "Grau"
-    c.Add Me.txtSalario.Value, "Salario"
-    c.Add Me.txtObs.Value, "Observacoes"
-    c.Add Me.chkRural.Value, "Rural"
-    c.Add Me.chkMilitar.Value, "Militar"
-    c.Add Me.chkExterior.Value, "Exterior"
-    c.Add Me.chkConcomitante.Value, "Concomitante"
-    c.Add Me.chkAtraso.Value, "Atraso"
-    c.Add Me.chkComplementar.Value, "Complementar"
+    
+    ' Garantir que Salario e Observacoes sejam strings (não pegar valores de checkbox)
+    c.Add CStr(Me.txtSalario.Value), "Salario"
+    c.Add CStr(Me.txtObs.Value), "Observacoes"
+    
+    ' Checkboxes - garantir que retornem Boolean
+    c.Add CBool(Me.chkRural.Value), "Rural"
+    c.Add CBool(Me.chkMilitar.Value), "Militar"
+    c.Add CBool(Me.chkExterior.Value), "Exterior"
+    c.Add CBool(Me.chkConcomitante.Value), "Concomitante"
+    c.Add CBool(Me.chkAtraso.Value), "Atraso"
+    c.Add CBool(Me.chkComplementar.Value), "Complementar"
 
     Set ColetarDados = c
 

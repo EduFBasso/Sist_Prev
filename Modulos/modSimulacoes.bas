@@ -226,16 +226,31 @@ Function CalcularIdade(nascimento As Date) As Long
 End Function
 
 Function CalcularTempoEspecial(ID_Cliente As Long) As Double
+    ' Calcula tempo especial CONVERTIDO para tempo comum
+    ' Aplica fatores diferenciados por sexo (Homem/Mulher) e grau (15/20/25)
+    
     Dim ws As Worksheet
+    Dim wsCliente As Worksheet
     Dim ultima As Long
     Dim i As Long
+    Dim linhaCliente As Long
     Dim diasTotal As Double
     Dim dtInicio As Date
     Dim dtFim As Date
     Dim grau As String
     Dim fator As Double
+    Dim sexo As String
 
     Set ws = Sheets("Vinculos")
+    Set wsCliente = Sheets("Cadastro_Clientes")
+    
+    ' Buscar sexo do cliente (coluna 8 em Cadastro_Clientes)
+    linhaCliente = BuscarLinhaCliente(ID_Cliente)
+    If linhaCliente > 0 Then
+        sexo = UCase(Trim(CStr(wsCliente.Cells(linhaCliente, 8).Value)))
+    Else
+        sexo = "M" ' Padrão masculino se não encontrar
+    End If
 
     ultima = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
 
@@ -259,17 +274,33 @@ Function CalcularTempoEspecial(ID_Cliente As Long) As Double
 
                 If dtFim >= dtInicio Then
                     grau = Trim(CStr(ws.Cells(i, 7).Value)) ' 15, 20 ou 25
-
-                    Select Case grau
-                        Case "15"
-                            fator = Nz(GetParametro("Conversao_Especial_15"))
-                        Case "20"
-                            fator = Nz(GetParametro("Conversao_Especial_20"))
-                        Case "25"
-                            fator = Nz(GetParametro("Conversao_Especial_25"))
-                        Case Else
-                            fator = 1
-                    End Select
+                    
+                    ' Buscar fator de conversão baseado em grau E sexo
+                    If sexo = "M" Then
+                        ' Homem: 2.33, 1.75, 1.40
+                        Select Case grau
+                            Case "15"
+                                fator = Nz(GetParametro("Conversao_Especial_15_H"), 2.33)
+                            Case "20"
+                                fator = Nz(GetParametro("Conversao_Especial_20_H"), 1.75)
+                            Case "25"
+                                fator = Nz(GetParametro("Conversao_Especial_25_H"), 1.4)
+                            Case Else
+                                fator = 1
+                        End Select
+                    Else
+                        ' Mulher: 2.00, 1.50, 1.20
+                        Select Case grau
+                            Case "15"
+                                fator = Nz(GetParametro("Conversao_Especial_15_M"), 2)
+                            Case "20"
+                                fator = Nz(GetParametro("Conversao_Especial_20_M"), 1.5)
+                            Case "25"
+                                fator = Nz(GetParametro("Conversao_Especial_25_M"), 1.2)
+                            Case Else
+                                fator = 1
+                        End Select
+                    End If
 
                     If fator <= 0 Then fator = 1
 

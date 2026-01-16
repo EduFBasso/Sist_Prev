@@ -82,3 +82,26 @@ Sub SetParametro(nome As String, valor As Variant, Optional descricao As String 
     End If
     
 End Sub
+
+' ============================================
+' Configurar fatores de conversão de tempo especial
+' ============================================
+Sub ConfigurarFatoresEspeciais()
+    ' Configura os 6 fatores de conversão conforme legislação
+    ' Baseado na tabela oficial de conversão de tempo especial
+    
+    ' HOMEM - Fatores de conversão
+    Call SetParametro("Conversao_Especial_15_H", 2.33, "Fator conversão especial 15 anos (Homem)")
+    Call SetParametro("Conversao_Especial_20_H", 1.75, "Fator conversão especial 20 anos (Homem)")
+    Call SetParametro("Conversao_Especial_25_H", 1.4, "Fator conversão especial 25 anos (Homem)")
+    
+    ' MULHER - Fatores de conversão
+    Call SetParametro("Conversao_Especial_15_M", 2, "Fator conversão especial 15 anos (Mulher)")
+    Call SetParametro("Conversao_Especial_20_M", 1.5, "Fator conversão especial 20 anos (Mulher)")
+    Call SetParametro("Conversao_Especial_25_M", 1.2, "Fator conversão especial 25 anos (Mulher)")
+    
+    MsgBox "Fatores de conversão de tempo especial configurados com sucesso!" & vbCrLf & vbCrLf & _
+           "HOMEM: 15 anos (×2.33) | 20 anos (×1.75) | 25 anos (×1.40)" & vbCrLf & _
+           "MULHER: 15 anos (×2.00) | 20 anos (×1.50) | 25 anos (×1.20)", _
+           vbInformation, "Configuração Concluída"
+End Sub

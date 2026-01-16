@@ -180,6 +180,29 @@ def extrair_vinculos_texto(caminho_pdf: str):
                 bloco = texto[inicio:fim]
                 blocos.append((pagina_idx, bloco))
                 pos = fim
+            
+            # TIPO 3: Formato compacto INSS (Eduardo Silva)
+            # Marcador: "Seq. NIT Código Emp. Origem do Vínculo Data Início Data Fim Tipo Filiado no Vínculo"
+            marcador3 = "Seq. NIT Código Emp. Origem do Vínculo"
+            pos = 0
+            while True:
+                inicio = texto.find(marcador3, pos)
+                if inicio == -1:
+                    break
+
+                # Captura até próximo vínculo ou fim da seção
+                # Procura próximo vínculo com mesmo marcador
+                proximo = texto.find(marcador3, inicio + len(marcador3))
+                if proximo != -1:
+                    fim = proximo
+                else:
+                    # Procura por "Identificação do Filiado" (próxima página) ou fim
+                    fim_id = texto.find("Identificação do Filiado", inicio + 100)
+                    fim = fim_id if fim_id != -1 else len(texto)
+
+                bloco = texto[inicio:fim]
+                blocos.append((pagina_idx, bloco))
+                pos = fim
 
     return blocos
 
@@ -206,9 +229,20 @@ def parse_vinculo_texto(texto: str) -> dict:
         corpo_completo = " ".join(linhas).strip()
         corpo_completo = " ".join(corpo_completo.split())
         
+        # DETECTA FORMATO COMPACTO (cabeçalho na mesma linha dos dados)
+        # Exemplo: "Seq. NIT Código Emp. Origem do Vínculo Data Início Data Fim Tipo Filiado no Vínculo Últ. Remun. Indicadores 1 122.13343.50-2..."
+        if "Seq. NIT Código Emp. Origem do Vínculo" in corpo_completo:
+            # FORMATO COMPACTO - remove cabeçalho
+            # O cabeçalho vai até "Indicadores" seguido pelo número da sequência
+            match_cabecalho = re.search(r'Seq\. NIT Código Emp\..*?Indicadores\s+', corpo_completo)
+            if match_cabecalho:
+                corpo = corpo_completo[match_cabecalho.end():].strip()
+            else:
+                corpo = corpo_completo
+        
         # Para vínculos facultativos, o formato é mais direto (sem pular linhas)
         # Detecta se é formato facultativo ANTES de processar
-        if "Seq. NIT Origem do Vínculo" in corpo_completo:
+        elif "Seq. NIT Origem do Vínculo" in corpo_completo:
             # FORMATO FACULTATIVO - usa todas as linhas
             corpo = corpo_completo
         else:
@@ -264,6 +298,48 @@ def parse_vinculo_texto(texto: str) -> dict:
                     "ult_remun": "",
                     "indicadores": indicadores,
                 }
+        
+        # FORMATO COMPACTO INSS (Eduardo Silva)
+        # Padrão: "1 122.13343.50-2 52.707.692/0001-06 BAR E LANCHES MOEDAS DE PRATA LTDA 01/03/1986 16/06/1987 06/1987"
+        # Formato: Seq NIT CNPJ Empresa DataInicio DataFim Competencia [Indicadores]
+        # Detecta pelo padrão: Seq NIT CNPJ seguido de datas
+        match_compacto = re.search(
+            r'(\d+)\s+(\d{3}\.\d{5}\.\d{2}-\d)\s+(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\s+(.+?)\s+(\d{2}/\d{2}/\d{4})\s+(\d{2}/\d{2}/\d{4})\s+(\d{2}/\d{4})',
+            corpo
+        )
+        if match_compacto:
+            seq = match_compacto.group(1)
+            nit = match_compacto.group(2)
+            codigo_emp = match_compacto.group(3)
+            empresa_bruta = match_compacto.group(4)
+            data_inicio = match_compacto.group(5)
+            data_fim = match_compacto.group(6)
+            ult_remun = match_compacto.group(7)
+            
+            # Limpar empresa (remover possíveis sobras de dados)
+            # Empresa termina antes das datas, então pega texto bruto
+            empresa = " ".join(empresa_bruta.split())
+            
+            # Indicadores vêm depois da competência (opcional)
+            resto = corpo[match_compacto.end():].strip()
+            # Pega primeira palavra após competência (se houver)
+            match_ind = re.search(r'^([A-Z-]+)', resto)
+            indicadores = match_ind.group(1) if match_ind else ""
+            
+            # Tipo filiado padrão para formato compacto
+            tipo_filiado = "Empregado"
+            
+            return {
+                "seq": seq,
+                "nit": nit,
+                "codigo_emp": codigo_emp,
+                "empresa": empresa,
+                "tipo_filiado": tipo_filiado,
+                "data_inicio": data_inicio,
+                "data_fim": data_fim,
+                "ult_remun": ult_remun,
+                "indicadores": indicadores,
+            }
         
         # FORMATO COM EMPRESA (original)
         # 1) EXTRAÇÃO DA SEQUÊNCIA (primeiro número depois do cabeçalho)
@@ -649,23 +725,29 @@ def extrair_remuneracoes_texto(caminho_pdf: str) -> list[dict]:
                         if not linha or "Matrícula" in linha or "Vínculos" in linha:
                             break
                         
-                        # Tentar extrair: competência (mm/aaaa), valor, indicadores
-                        # Padrão: "01/1995 286,25" ou "01/1995 286,25 texto_indicador"
-                        match = re.match(r'(\d{2}/\d{4})\s+([\d.,]+)\s*(.*)', linha)
+                        # CORREÇÃO: Extrair TODAS as competências da linha
+                        # Layout CNIS: cada linha pode ter até 3 conjuntos de (Competência, Remuneração, Indicadores)
+                        # Exemplo: "01/1995 286,25  02/1995 286,25  03/1995 286,25"
+                        # Ou: "01/1995 286,25 IND1 02/1995 286,25  03/1995 286,25 IND3"
                         
-                        if match:
-                            competencia = match.group(1)
-                            remuneracao = match.group(2).replace('.', '').replace(',', '.')  # Converte formato BR para numérico
-                            indicadores = match.group(3).strip()
-                            
-                            registros_remuneracao.append({
-                                "pagina": pagina_idx,
-                                "seq": seq,
-                                "codigo_emp": codigo_emp,
-                                "competencia": competencia,
-                                "remuneracao": remuneracao,
-                                "indicadores": indicadores,
-                            })
+                        # Buscar todos os padrões mm/aaaa seguidos de valor
+                        # Padrão: captura até 3 competências por linha
+                        padroes = re.findall(r'(\d{2}/\d{4})\s+([\d.,]+)\s*([^\d/]*?)(?=\d{2}/\d{4}|$)', linha)
+                        
+                        if padroes:
+                            for competencia, remuneracao, indicadores in padroes:
+                                # Limpar remuneração (remover separadores de milhares, converter vírgula)
+                                remuneracao_limpa = remuneracao.replace('.', '').replace(',', '.')
+                                indicadores_limpo = indicadores.strip()
+                                
+                                registros_remuneracao.append({
+                                    "pagina": pagina_idx,
+                                    "seq": seq,
+                                    "codigo_emp": codigo_emp,
+                                    "competencia": competencia,
+                                    "remuneracao": remuneracao_limpa,
+                                    "indicadores": indicadores_limpo,
+                                })
                         
                         i += 1
                 

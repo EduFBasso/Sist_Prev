@@ -4,6 +4,30 @@
 
 Option Explicit
 
+' Função auxiliar para converter valores para booleano de forma segura
+Private Function ConverterParaBooleano(valor As Variant) As Boolean
+    ' Trata diversos formatos: True, False, "Verdadeiro", "Falso", -1, 0, etc.
+    
+    On Error Resume Next
+    
+    If IsNull(valor) Or IsEmpty(valor) Then
+        ConverterParaBooleano = False
+        Exit Function
+    End If
+    
+    Dim valorStr As String
+    valorStr = UCase(Trim(CStr(valor)))
+    
+    Select Case valorStr
+        Case "TRUE", "VERDADEIRO", "SIM", "S", "1", "-1"
+            ConverterParaBooleano = True
+        Case Else
+            ConverterParaBooleano = False
+    End Select
+    
+    On Error GoTo 0
+End Function
+
 Sub SalvarVinculo(dados As Collection)
     Dim ws As Worksheet
     Dim linha As Long
@@ -28,6 +52,7 @@ Sub SalvarVinculo(dados As Collection)
     ' Ordem correta: ID_Vinculo, ID_Cliente, Data_Inicio, Data_Fim, Tipo_Vinculo,
     '                Especial, Grau_Especial, Salario_Contribuicao, Observacoes, Data_Cadastro,
     '                Rural, Militar, Exterior, Concomitante, Atraso, Complementar, Codigo Emp.
+    ' NOTA: Salario_Contribuicao (col 8) é campo INFORMATIVO - cálculos usam planilha Remuneracoes
     
     ws.Cells(linha, 1).Value = idV
     ws.Cells(linha, 2).Value = dados("ID_Cliente")
@@ -42,7 +67,7 @@ Sub SalvarVinculo(dados As Collection)
     ws.Cells(linha, 5).Value = dados("Tipo")
     ws.Cells(linha, 6).Value = dados("Especial")
     ws.Cells(linha, 7).Value = dados("Grau")
-    ws.Cells(linha, 8).Value = dados("Salario")
+    ws.Cells(linha, 8).Value = dados("Salario")  ' Campo informativo - não afeta cálculos
     
     ' Garantir que Observações seja salvo como texto (coluna 9)
     ws.Cells(linha, 9).NumberFormat = "@"
@@ -50,13 +75,13 @@ Sub SalvarVinculo(dados As Collection)
     
     ws.Cells(linha, 10).Value = Date  ' Data_Cadastro
     
-    ' Garantir booleanos explícitos (não converter para texto em português)
-    ws.Cells(linha, 11).Value = CBool(dados("Rural"))
-    ws.Cells(linha, 12).Value = CBool(dados("Militar"))
-    ws.Cells(linha, 13).Value = CBool(dados("Exterior"))
-    ws.Cells(linha, 14).Value = CBool(dados("Concomitante"))
-    ws.Cells(linha, 15).Value = CBool(dados("Atraso"))
-    ws.Cells(linha, 16).Value = CBool(dados("Complementar"))
+    ' Garantir booleanos explícitos - conversão segura para diferentes formatos
+    ws.Cells(linha, 11).Value = ConverterParaBooleano(dados("Rural"))
+    ws.Cells(linha, 12).Value = ConverterParaBooleano(dados("Militar"))
+    ws.Cells(linha, 13).Value = ConverterParaBooleano(dados("Exterior"))
+    ws.Cells(linha, 14).Value = ConverterParaBooleano(dados("Concomitante"))
+    ws.Cells(linha, 15).Value = ConverterParaBooleano(dados("Atraso"))
+    ws.Cells(linha, 16).Value = ConverterParaBooleano(dados("Complementar"))
     
     Call AtualizarIndicadoresCliente(dados("ID_Cliente"))
 End Sub
@@ -263,16 +288,16 @@ Sub CarregarVinculo(ID_Vinculo As Long)
         .cboTipo.Value = ws.Cells(linha, 5).Value
         .cboEspecial.Value = ws.Cells(linha, 6).Value
         .cboGrau.Value = ws.Cells(linha, 7).Value
+        .txtSalario.Value = ws.Cells(linha, 8).Value
+        .txtObs.Value = ws.Cells(linha, 9).Value
         
-        .chkRural.Value = ws.Cells(linha, 8).Value
-        .chkMilitar.Value = ws.Cells(linha, 9).Value
-        .chkExterior.Value = ws.Cells(linha, 10).Value
-        .chkConcomitante.Value = ws.Cells(linha, 11).Value
-        .chkAtraso.Value = ws.Cells(linha, 12).Value
-        .chkComplementar.Value = ws.Cells(linha, 13).Value
-        
-        .txtSalario.Value = ws.Cells(linha, 14).Value
-        .txtObs.Value = ws.Cells(linha, 15).Value
+        ' Checkboxes (colunas 11-16, pula coluna 10 = Data_Cadastro)
+        .chkRural.Value = ws.Cells(linha, 11).Value
+        .chkMilitar.Value = ws.Cells(linha, 12).Value
+        .chkExterior.Value = ws.Cells(linha, 13).Value
+        .chkConcomitante.Value = ws.Cells(linha, 14).Value
+        .chkAtraso.Value = ws.Cells(linha, 15).Value
+        .chkComplementar.Value = ws.Cells(linha, 16).Value
     End With
 
 End Sub
@@ -444,13 +469,13 @@ Sub SalvarVinculoComExtras(dados As Collection, seq As String, codigoEmp As Stri
     
     ws.Cells(linha, 10).Value = Date  ' Data_Cadastro
     
-    ' Garantir booleanos explícitos (não converter para texto em português)
-    ws.Cells(linha, 11).Value = CBool(dados("Rural"))
-    ws.Cells(linha, 12).Value = CBool(dados("Militar"))
-    ws.Cells(linha, 13).Value = CBool(dados("Exterior"))
-    ws.Cells(linha, 14).Value = CBool(dados("Concomitante"))
-    ws.Cells(linha, 15).Value = CBool(dados("Atraso"))
-    ws.Cells(linha, 16).Value = CBool(dados("Complementar"))
+    ' Garantir booleanos explícitos - conversão segura para diferentes formatos
+    ws.Cells(linha, 11).Value = ConverterParaBooleano(dados("Rural"))
+    ws.Cells(linha, 12).Value = ConverterParaBooleano(dados("Militar"))
+    ws.Cells(linha, 13).Value = ConverterParaBooleano(dados("Exterior"))
+    ws.Cells(linha, 14).Value = ConverterParaBooleano(dados("Concomitante"))
+    ws.Cells(linha, 15).Value = ConverterParaBooleano(dados("Atraso"))
+    ws.Cells(linha, 16).Value = ConverterParaBooleano(dados("Complementar"))
     
     ' Dados extras do CNIS (colunas 17-18)
     ws.Cells(linha, 17).Value = codigoEmp    ' Código da Empresa (CNPJ)

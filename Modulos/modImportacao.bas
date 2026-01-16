@@ -136,6 +136,10 @@ Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
     
     ' Informar pasta do cliente detectada
     Debug.Print "📁 Pasta do cliente: " & pastaCliente
+    Debug.Print "📂 Caminho completo da pasta: " & pasta
+    Debug.Print "📝 Arquivo dados esperado: " & arquivoDados
+    Debug.Print "📝 Arquivo vínculos esperado: " & arquivoVinculos
+    Debug.Print "📝 Arquivo remunerações esperado: " & arquivoRemuneracoes
     
     ' ========================================
     ' ETAPA 1: Importar dados do cliente
@@ -146,21 +150,35 @@ Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
         Exit Sub
     End If
     
+    Debug.Print "📄 Abrindo arquivo: " & arquivoDados
+    
     ' Ler dados do CSV
     Dim fNum As Integer
     Dim linha As String
     Dim dadosCSV() As String
     
     fNum = FreeFile
+    
+    On Error GoTo ErroLeitura
     Open arquivoDados For Input As #fNum
     
-    ' Pular cabeçalho
-    Line Input #fNum, linha
+    ' Pular cabeçalho (verificar se arquivo não está vazio)
+    If Not EOF(fNum) Then
+        Line Input #fNum, linha
+    Else
+        Close #fNum
+        MsgBox "Arquivo de dados do cliente está vazio: " & vbCrLf & arquivoDados, vbExclamation
+        Exit Sub
+    End If
     
     ' Ler dados (deve ter apenas uma linha)
     If Not EOF(fNum) Then
         Line Input #fNum, linha
         dadosCSV = Split(linha, ";")
+    Else
+        Close #fNum
+        MsgBox "Arquivo de dados do cliente não contém dados (apenas cabeçalho): " & vbCrLf & arquivoDados, vbExclamation
+        Exit Sub
     End If
     
     Close #fNum
@@ -274,6 +292,9 @@ Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
     
     If Len(Dir(arquivoRemuneracoes)) > 0 Then
         Call ImportarRemuneracoesDeCSV(arquivoRemuneracoes, ID_Cliente)
+        
+        ' ETAPA 4: Atualizar campo Salario_Contribuicao com última remuneração (informativo)
+        Call AtualizarSalariosInformativosDoCliente(ID_Cliente)
     Else
         MsgBox "Aviso: Arquivo de remunerações não encontrado: " & vbCrLf & arquivoRemuneracoes, vbExclamation
     End If
@@ -291,6 +312,15 @@ Sub ImportarCNIS_Automatico(Optional caminhoInicial As String = "")
     ' Carregar e exibir formulário de cadastro
     Call CarregarCliente(ID_Cliente)
     frmCadastro.Show
+    
+    Exit Sub
+    
+ErroLeitura:
+    Close #fNum
+    MsgBox "Erro ao ler arquivo de dados do cliente:" & vbCrLf & vbCrLf & _
+           "Erro: " & Err.Number & " - " & Err.Description & vbCrLf & vbCrLf & _
+           "Arquivo: " & arquivoDados, vbCritical, "Erro de Leitura"
+    Exit Sub
     
 End Sub
 
@@ -361,7 +391,17 @@ Sub ImportarVinculosDeCSV(caminhoCSV As String, ID_Cliente As Long)
                     dados.Add partes(6), "Tipo"
                     dados.Add "Não", "Especial"
                     dados.Add "", "Grau"
-                    dados.Add 0, "Salario"
+                    
+                    ' Buscar última remuneração (informativa - não substitui planilha Remuneracoes)
+                    Dim ultimaRemuneracao As String
+                    ultimaRemuneracao = ""
+                    If UBound(partes) >= 9 And Trim(partes(9)) <> "" Then
+                        ' Extrair última remuneração da competência
+                        ' Ex: "05/1995" na col 9 = competência, mas pode ter valor também
+                        ' Vamos deixar 0 por enquanto - será preenchido após importar remunerações
+                        ultimaRemuneracao = "0"
+                    End If
+                    dados.Add ultimaRemuneracao, "Salario"
                     
                     ' Garantir que Observações seja texto
                     Dim obsTexto As String
@@ -799,5 +839,88 @@ Sub CriarRelatorioCliente(ID_Cliente As Long)
     wsRelatorio.Range("A1").Select
     
     MsgBox "Relatório criado com sucesso: " & nomeAba, vbInformation
+    
+End Sub
+
+Sub AtualizarSalariosInformativosDoCliente(ID_Cliente As Long)
+    ' Atualiza o campo Salario_Contribuicao de cada vínculo com a última remuneração
+    ' IMPORTANTE: Este campo é apenas INFORMATIVO - os cálculos usam a planilha Remuneracoes
+    
+    Dim wsVinculos As Worksheet
+    Dim wsRemuneracoes As Worksheet
+    Dim ultimaV As Long, ultimaR As Long
+    Dim i As Long, j As Long
+    Dim ID_Vinculo As Long
+    Dim ultimaRemuneracao As Double
+    Dim maiorData As Date
+    Dim valorEncontrado As Boolean
+    Dim competencia As String
+    Dim dataCompetencia As Date
+    Dim totalAtualizados As Long
+    
+    Set wsVinculos = Sheets("Vinculos")
+    Set wsRemuneracoes = Sheets("Remuneracoes")
+    
+    ultimaV = wsVinculos.Cells(wsVinculos.Rows.Count, 1).End(xlUp).Row
+    ultimaR = wsRemuneracoes.Cells(wsRemuneracoes.Rows.Count, 1).End(xlUp).Row
+    totalAtualizados = 0
+    
+    Debug.Print "💰 Atualizando salários informativos do cliente ID: " & ID_Cliente
+    Debug.Print "   Vínculos na planilha: " & (ultimaV - 1)
+    Debug.Print "   Remunerações na planilha: " & (ultimaR - 1)
+    
+    ' Para cada vínculo do cliente
+    For i = 2 To ultimaV
+        If wsVinculos.Cells(i, 2).Value = ID_Cliente Then
+            ID_Vinculo = wsVinculos.Cells(i, 1).Value
+            
+            ' Buscar a última remuneração deste vínculo
+            ultimaRemuneracao = 0
+            maiorData = #1/1/1900#
+            valorEncontrado = False
+            
+            For j = 2 To ultimaR
+                Dim idVinculoRem As Variant
+                idVinculoRem = wsRemuneracoes.Cells(j, 2).Value
+                
+                If idVinculoRem = ID_Vinculo Then
+                    ' Col 4 = Competencia (formato mm/aaaa ou dd/mm/aaaa)
+                    competencia = Trim(CStr(wsRemuneracoes.Cells(j, 4).Value))
+                    dataCompetencia = #1/1/1900#
+                    
+                    ' Tentar converter competência em data
+                    On Error Resume Next
+                    If InStr(competencia, "/") > 0 Then
+                        Dim partes() As String
+                        partes = Split(competencia, "/")
+                        If UBound(partes) = 1 Then
+                            ' Formato mm/aaaa
+                            dataCompetencia = DateSerial(CInt(partes(1)), CInt(partes(0)), 1)
+                        ElseIf UBound(partes) = 2 Then
+                            ' Formato dd/mm/aaaa
+                            dataCompetencia = DateSerial(CInt(partes(2)), CInt(partes(1)), CInt(partes(0)))
+                        End If
+                    End If
+                    On Error GoTo 0
+                    
+                    ' Se é a competência mais recente, guardar o valor (>= para pegar primeira ocorrência)
+                    If dataCompetencia >= maiorData Then
+                        maiorData = dataCompetencia
+                        ultimaRemuneracao = wsRemuneracoes.Cells(j, 5).Value  ' Col 5 = Remuneracao
+                        valorEncontrado = True
+                    End If
+                End If
+            Next j
+            
+            ' Atualizar campo Salario_Contribuicao (col 8) - apenas informativo
+            If valorEncontrado Then
+                wsVinculos.Cells(i, 8).NumberFormat = "0.00"
+                wsVinculos.Cells(i, 8).Value = ultimaRemuneracao
+                totalAtualizados = totalAtualizados + 1
+            End If
+        End If
+    Next i
+    
+    Debug.Print "   ✅ Total de vínculos atualizados: " & totalAtualizados
     
 End Sub
