@@ -8,6 +8,8 @@ Gera arquivo CSV com fatores de correção monetária para o sistema ERP_Prev
 
 import json
 import os
+import sys
+from pathlib import Path
 from datetime import datetime
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
@@ -144,15 +146,33 @@ def calcular_fatores(dados, mes_base=None):
     
     return fatores
 
-def salvar_csv(fatores, arquivo="saida/inpc_fatores.csv"):
+def _pasta_base() -> Path:
+    """Diretório base do programa (funciona em .py e .exe empacotado)."""
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        # Padrão do projeto: executáveis ficam em "bin/" dentro da pasta do Excel.
+        # Nesse caso, a pasta base correta é o PAI de "bin".
+        if exe_dir.name.lower() == "bin":
+            return exe_dir.parent
+        return exe_dir
+    return Path(__file__).resolve().parent
+
+
+def salvar_csv(fatores, arquivo: str | None = None):
     """Salva fatores em arquivo CSV"""
     try:
+        # Sempre gravar dentro da pasta do programa (evita depender do "cwd")
+        if not arquivo:
+            arquivo_path = _pasta_base() / "saida" / "inpc_fatores.csv"
+        else:
+            arquivo_path = Path(arquivo)
+
         # Criar pasta saida se não existir
-        os.makedirs(os.path.dirname(arquivo), exist_ok=True)
+        os.makedirs(os.path.dirname(str(arquivo_path)), exist_ok=True)
         
-        print(f"\nGravando arquivo {arquivo}...")
+        print(f"\nGravando arquivo {arquivo_path}...")
         
-        with open(arquivo, 'w', encoding='utf-8') as f:
+        with open(arquivo_path, 'w', encoding='utf-8') as f:
             f.write("Competencia;Fator\n")
             
             # Ordenar por competência (MM/YYYY)

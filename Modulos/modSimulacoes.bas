@@ -1124,8 +1124,8 @@ Function CalcularMediaSalarios(ID_Cliente As Long) As Double
             competencia = ws.Cells(i, 4).Value    ' Coluna D = Competencia (MM/YYYY)
             
             If valor > 0 Then
-                ' Aplicar correcao INPC ao valor
-                valorCorrigido = AplicarCorrecaoINPC(valor, competencia)
+                ' Aplicar correção monetária ao valor (índice configurável)
+                valorCorrigido = AplicarCorrecaoMonetaria(valor, competencia)
                 
                 n = n + 1
                 ReDim Preserve salarios(1 To n)
@@ -1163,6 +1163,53 @@ Function CalcularMediaSalarios(ID_Cliente As Long) As Double
     
     CalcularMediaSalarios = total / quantidadeConsiderar
     
+End Function
+
+' ==============================================================================
+' FUNCAO: AplicarCorrecaoMonetaria
+' DESCRICAO: Ponto único para escolher o índice de correção monetária.
+'            Hoje: INPC (implementado). Futuro: SELIC (a implementar).
+' PARAMETROS:
+'   - valor: valor original
+'   - competencia: data no formato MM/YYYY
+' RETORNO: Valor corrigido conforme índice selecionado
+' ==============================================================================
+Public Function AplicarCorrecaoMonetaria(ByVal valor As Double, ByVal competencia As String) As Double
+    Dim indice As String
+    indice = UCase(Trim(CStr(GetParametro("Indice_Correcao_Remuneracoes"))))
+
+    If indice = "" Or indice = "0" Then
+        indice = "INPC" ' Padrão seguro
+    End If
+
+    Select Case indice
+        Case "INPC"
+            AplicarCorrecaoMonetaria = AplicarCorrecaoINPC(valor, competencia)
+        Case "SELIC"
+            AplicarCorrecaoMonetaria = AplicarCorrecaoSELIC(valor, competencia)
+        Case Else
+            ' Índice desconhecido: não corrige (evita quebrar simulação)
+            AplicarCorrecaoMonetaria = valor
+    End Select
+End Function
+
+' ==============================================================================
+' FUNCAO: AplicarCorrecaoSELIC
+' DESCRICAO: Placeholder para correção por SELIC (não implementado neste projeto).
+'            Mantém o motor extensível sem travar o uso do sistema.
+' ==============================================================================
+Private Function AplicarCorrecaoSELIC(ByVal valor As Double, ByVal competencia As String) As Double
+    Static avisoMostrado As Boolean
+
+    If Not avisoMostrado Then
+        avisoMostrado = True
+        MsgBox "Correção por SELIC ainda não está implementada." & vbCrLf & vbCrLf & _
+               "Parâmetro 'Indice_Correcao_Remuneracoes' está como SELIC, mas o sistema irá manter os valores sem correção (por enquanto)." & vbCrLf & _
+               "Para usar INPC, defina o parâmetro como INPC em Config_Regras.", _
+               vbExclamation, "Aviso - SELIC pendente"
+    End If
+
+    AplicarCorrecaoSELIC = valor
 End Function
 
 ' ================================================================================

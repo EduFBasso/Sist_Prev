@@ -23,6 +23,7 @@ Sist_Prev/
 ├── 📂 info/                 ← DOCUMENTAÇÃO COMPLETA DO SISTEMA
 │   ├── README.md
 │   ├── MAPEAMENTO_FRMSIMULACOES.md
+│   ├── MAPA_REGRAS_E_LAYOUT.md
 │   ├── CORRECOES_IMPLEMENTADAS.md
 │   ├── STATUS_APOS_CORRECOES.md
 │   └── ... (outros manuais)
@@ -52,7 +53,8 @@ Sist_Prev/
 
   1️⃣  PROCESSAR CNIS:
       • Coloque PDFs em "entrada/"
-      • Execute: python converter_extrato_inss.py
+      • Execute (modo dev): python converter_extrato_inss.py
+      • Execute (modo cliente/Windows): bin\converter_extrato_inss.exe
       • CSVs gerados em "saida/"
 
   2️⃣  IMPORTAR DADOS:
@@ -93,8 +95,8 @@ Sist_Prev/
 💻 REQUISITOS
 
   Python:
-    • Python 3.8 ou superior
-    • Biblioteca pdfplumber (pip install pdfplumber)
+    • Modo dev (rodar .py): Python 3.8+ e bibliotecas (ver requirements.txt)
+    • Modo cliente (rodar .exe): NÃO precisa Python (usar bin\*.exe)
   
   Excel:
     • Microsoft Excel com suporte a macros VBA
@@ -128,7 +130,20 @@ Sist_Prev/
     • Cálculo real de valores com remunerações históricas
     • Suporte a vínculos facultativos e contribuinte individual
     • Reajustes de valores por índices INPC/TR
-    • Empacotamento Windows (.exe)
+    • Empacotamento Windows (.exe) via build_executaveis.py (padronizar entrega em bin/)
+
+═══════════════════════════════════════════════════════════════════════════════════════
+
+🪟 WINDOWS / ENTREGA AO CLIENTE (RECOMENDADO)
+
+  Para rodar no Windows sem instalar Python:
+    • Gere os executáveis com build_executaveis.py
+    • Copie para a pasta bin/ ao lado do erp_prev.xlsm:
+        - bin\atualizar_inpc.exe
+        - bin\converter_extrato_inss.exe
+
+  Observação:
+    • O VBA procura primeiro o .exe em bin/. Se não existir, tenta rodar o .py (exige Python no Windows).
 
 ═══════════════════════════════════════════════════════════════════════════════════════
 

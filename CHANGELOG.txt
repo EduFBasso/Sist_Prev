@@ -3,6 +3,32 @@
 ═══════════════════════════════════════════════════════════════════════════════════════
 
 ═══════════════════════════════════════════════════════════════════════════════════════
+  VERSÃO 1.1.1 - 19/01/2026
+═══════════════════════════════════════════════════════════════════════════════════════
+
+🎯 MELHORIAS:
+
+  ✨ Parametrização do índice de correção (INPC x SELIC)
+    - Novo parâmetro: Indice_Correcao_Remuneracoes (INPC/SELIC)
+    - frmPrincipal: seleção persistente via OptionButtons (optIndiceINPC/optIndiceSELIC)
+    - modSimulacoes: ponto único AplicarCorrecaoMonetaria() (INPC implementado / SELIC placeholder)
+
+  🧭 Mapeamento de regras x layout
+    - Novo documento: info/MAPA_REGRAS_E_LAYOUT.md
+    - Diretriz: regras do "Especial" ficam no vínculo; regras comuns ficam no motor de simulação
+
+🪟 COMPATIBILIDADE WINDOWS / REDE:
+
+  ✅ Scripts Python mais robustos em execução via Excel/atalho/rede
+    - atualizar_inpc.py: grava saida/inpc_fatores.csv relativo à pasta do projeto (pai de bin/)
+    - converter_extrato_inss.py: base de pastas consistente (entrada/saida ao lado do Excel)
+    - Removido bloco duplicado de execução do main() no extrator (evita processar duas vezes)
+
+  ℹ️ Empacotamento (.exe)
+    - build_executaveis.py já gera atualizar_inpc.exe e converter_extrato_inss.exe para bin/
+    - Cliente Windows não precisa Python quando usa bin\*.exe
+
+═══════════════════════════════════════════════════════════════════════════════════════
   VERSÃO 1.1 - 12/01/2026
 ═══════════════════════════════════════════════════════════════════════════════════════
 

@@ -1,5 +1,5 @@
 ' ================================================================
-' frmPrincipal - Formulário principal do sistema
+' frmPrincipal - Formulário principal do sistema V1
 ' ================================================================
 
 Option Explicit
@@ -66,7 +66,7 @@ Private Sub cmdAtualizarINPC_Click()
     
     If sucesso Then
         ' Atualizar label com a data
-        Call AtualizarLabelDataINPC
+        Call AtualizarLabelDataInpcSelic
         
         MsgBox "Índices INPC atualizados com sucesso!" & vbCrLf & vbCrLf & _
                "Data: " & GetParametro("Data_Atualizacao_INPC") & vbCrLf & vbCrLf & _
@@ -81,20 +81,91 @@ End Sub
 
 Private Sub UserForm_Initialize()
     ' Atualizar label da data ao abrir o formulário
-    Call AtualizarLabelDataINPC
+    Call AtualizarLabelDataInpcSelic
+
+    ' Inicializar seleção do índice de correção (INPC/SELIC)
+    Call InicializarIndiceCorrecao
 End Sub
 
-Private Sub AtualizarLabelDataINPC()
+' ================================================================
+' Índice de correção monetária (INPC x SELIC)
+' - Persistência: Config_Regras / parâmetro "Indice_Correcao_Remuneracoes"
+' ================================================================
+Private Sub InicializarIndiceCorrecao()
+    Dim indiceAtual As String
+
+    indiceAtual = UCase(Trim(CStr(GetParametro("Indice_Correcao_Remuneracoes"))))
+
+    ' Se não existir, cria com padrão INPC
+    If indiceAtual = "" Or indiceAtual = "0" Then
+        Call SetParametro("Indice_Correcao_Remuneracoes", "INPC", _
+                          "Indice de correcao das remuneracoes para media (INPC/SELIC)")
+        indiceAtual = "INPC"
+    End If
+
+    ' Preencher ComboBox (se existir no layout)
+    If ControleExiste("cboIndiceCorrecao") Then
+        Dim cbo As Object
+        Set cbo = Me.Controls("cboIndiceCorrecao")
+        cbo.Clear
+        cbo.AddItem "INPC"
+        cbo.AddItem "SELIC"
+        cbo.Value = indiceAtual
+    End If
+
+    ' Preencher OptionButtons (se existirem no layout)
+    If ControleExiste("optIndiceINPC") Then
+        Me.Controls("optIndiceINPC").Value = (indiceAtual = "INPC")
+    End If
+    If ControleExiste("optIndiceSELIC") Then
+        Me.Controls("optIndiceSELIC").Value = (indiceAtual = "SELIC")
+    End If
+End Sub
+
+Private Function ControleExiste(ByVal nomeControle As String) As Boolean
+    On Error GoTo NaoExiste
+    Dim tmp As Object
+    Set tmp = Me.Controls(nomeControle)
+    ControleExiste = True
+    Exit Function
+NaoExiste:
+    ControleExiste = False
+End Function
+
+Private Sub SalvarIndiceCorrecao(ByVal indice As String)
+    indice = UCase(Trim(indice))
+    If indice <> "INPC" And indice <> "SELIC" Then Exit Sub
+    Call SetParametro("Indice_Correcao_Remuneracoes", indice, _
+                      "Indice de correcao das remuneracoes para media (INPC/SELIC)")
+End Sub
+
+' --- Eventos (escolha 1): ComboBox ---
+Private Sub cboIndiceCorrecao_Change()
+    ' Se o ComboBox não existir no layout, não faz nada (evita erro de compilação no Windows)
+    If Not ControleExiste("cboIndiceCorrecao") Then Exit Sub
+    Call SalvarIndiceCorrecao(CStr(Me.Controls("cboIndiceCorrecao").Value))
+End Sub
+
+' --- Eventos (escolha 2): OptionButtons ---
+Private Sub optIndiceINPC_Click()
+    If Me.optIndiceINPC.Value = True Then Call SalvarIndiceCorrecao("INPC")
+End Sub
+
+Private Sub optIndiceSELIC_Click()
+    If Me.optIndiceSELIC.Value = True Then Call SalvarIndiceCorrecao("SELIC")
+End Sub
+
+Private Sub AtualizarLabelDataInpcSelic()
     ' Atualiza o label com a última data de atualização
     Dim dataAtual As String
     
     dataAtual = GetParametro("Data_Atualizacao_INPC")
     
     If dataAtual <> "" And Not IsNull(dataAtual) Then
-        Me.lblDataINPC.Caption = "Última atualização INPC: " & dataAtual
-        Me.lblDataINPC.ForeColor = RGB(0, 128, 0)  ' Verde
+        Me.lblDataAtualizacao.Caption = "Última atualização INPC: " & dataAtual
+        Me.lblDataAtualizacao.ForeColor = RGB(0, 128, 0)  ' Verde
     Else
-        Me.lblDataINPC.Caption = "INPC não atualizado - clique no botão acima"
-        Me.lblDataINPC.ForeColor = RGB(255, 0, 0)  ' Vermelho
+        Me.lblDataAtualizacao.Caption = "INPC não atualizado - clique no botão acima"
+        Me.lblDataAtualizacao.ForeColor = RGB(255, 0, 0)  ' Vermelho
     End If
 End Sub

@@ -1,6 +1,7 @@
 /node_modules
 logs
 /xvba_excel_backup
+.DS_Store
 *.pdf
 *.docx
 *.xlsx
@@ -10,9 +11,6 @@ logs
 *.tmp
 *.log
 *.csv
-*.md 
-
-
 
 
 .vscode
@@ -20,5 +18,7 @@ modAuxiliar.bas
 Config_Regras.bas
 entrada/
 saida/
-info/
 .venv/
+
+GUIA_NOVO.txt
+COMO_USAR.txt

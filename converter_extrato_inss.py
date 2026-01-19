@@ -20,10 +20,15 @@ def obter_pasta_base():
     """Retorna o diretório base do script (funciona em .py e .exe)"""
     if getattr(sys, 'frozen', False):
         # Se estiver rodando como .exe empacotado
-        return Path(sys.executable).parent
+        exe_dir = Path(sys.executable).resolve().parent
+        # Padrão do projeto: executáveis ficam em "bin/" dentro da pasta do Excel.
+        # Nesse caso, a pasta base correta é o PAI de "bin".
+        if exe_dir.name.lower() == "bin":
+            return exe_dir.parent
+        return exe_dir
     else:
         # Se estiver rodando como .py
-        return Path(__file__).parent
+        return Path(__file__).resolve().parent
 
 
 def criar_estrutura_pastas():
@@ -1095,11 +1100,6 @@ def main(argv=None) -> None:
     
     print(f"💾 Todos os arquivos foram salvos em: {pasta_saida}/")
     print(f"📥 Para importar no VBA, use os arquivos *_dados_cliente.csv e *_vinculos_estruturado.csv\n")
-
-
-if __name__ == "__main__":
-    main()
-
 
 
 if __name__ == "__main__":
