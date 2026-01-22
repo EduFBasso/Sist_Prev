@@ -1,7 +1,7 @@
-'------------------------------------------------------------------
+'-----------------------------------------------------------------------------------
 ' Formulário: frmSimulacoes
-' Descrição: Formulário para simulação de aposentadoria
-'------------------------------------------------------------------
+' Descrição: Formulário para simulação de aposentadoria (extração automática/manual)
+'-----------------------------------------------------------------------------------
 
 Private Sub UserForm_Initialize()
     ' Carregar estado do modo automático ao abrir o formulário
@@ -68,6 +68,26 @@ Private Sub AtualizarEstadoBotoes()
     Me.optPedagio50.Enabled = habilitar
     Me.optPedagio100.Enabled = habilitar
     Me.optEspecial.Enabled = habilitar
+    
+    ' CORREÇÃO: Se mudou para MANUAL, desmarcar todos para forçar escolha consciente
+    ' E garantir que TODOS estejam habilitados (sobrescreve qualquer estado anterior)
+    If habilitar Then
+        ' Garantir que todos estejam habilitados (em caso de terem sido desabilitados pelo cmdCalcular)
+        Me.optTempoContribuicao.Enabled = True
+        Me.optIdade.Enabled = True
+        Me.optPontos.Enabled = True
+        Me.optPedagio50.Enabled = True
+        Me.optPedagio100.Enabled = True
+        Me.optEspecial.Enabled = True
+        
+        ' Desmarcar todos para forçar escolha consciente
+        Me.optTempoContribuicao.Value = False
+        Me.optIdade.Value = False
+        Me.optPontos.Value = False
+        Me.optPedagio50.Value = False
+        Me.optPedagio100.Value = False
+        Me.optEspecial.Value = False
+    End If
 End Sub
 
 Public Sub PreencherDadosIniciais(ID_Cliente As Long)
@@ -441,19 +461,42 @@ Private Sub cmdToggleAuto_Click()
     ' IMPORTANTE: Salvar ANTES do MsgBox para evitar conflito com UserForm_Activate
     Call SetParametro("ModoAutoSimulacao", novoModo, "Modo automático nas simulações (TRUE/FALSE)")
     
-    ' Atualizar visual manualmente (não chamar AtualizarBotaoToggle para evitar releitura)
+    ' Atualizar visual E estado dos botões diretamente (sem reler parâmetro)
     If novoModo = "TRUE" Then
+        ' Modo AUTOMÁTICO
         Me.cmdToggleAuto.Caption = "Auto"
         Me.cmdToggleAuto.BackColor = RGB(144, 238, 144)  ' Verde padrão
+        
+        ' Desabilitar botões (será habilitado o correto no cmdCalcular)
+        Me.optTempoContribuicao.Enabled = False
+        Me.optIdade.Enabled = False
+        Me.optPontos.Enabled = False
+        Me.optPedagio50.Enabled = False
+        Me.optPedagio100.Enabled = False
+        Me.optEspecial.Enabled = False
     Else
+        ' Modo MANUAL
         Me.cmdToggleAuto.Caption = "Manual"
         Me.cmdToggleAuto.BackColor = RGB(255, 218, 185)  ' Laranja claro
+        
+        ' HABILITAR TODOS os botões
+        Me.optTempoContribuicao.Enabled = True
+        Me.optIdade.Enabled = True
+        Me.optPontos.Enabled = True
+        Me.optPedagio50.Enabled = True
+        Me.optPedagio100.Enabled = True
+        Me.optEspecial.Enabled = True
+        
+        ' DESMARCAR TODOS para forçar escolha consciente
+        Me.optTempoContribuicao.Value = False
+        Me.optIdade.Value = False
+        Me.optPontos.Value = False
+        Me.optPedagio50.Value = False
+        Me.optPedagio100.Value = False
+        Me.optEspecial.Value = False
     End If
     
-    ' Atualizar estado dos OptionButtons
-    Call AtualizarEstadoBotoes
-    
-    ' Mensagem DEPOIS de salvar (evita conflito de foco)
+    ' Mensagem DEPOIS de alterar estado (evita conflito de foco)
     If novoModo = "FALSE" Then
         MsgBox "Modo MANUAL ativado!" & vbCrLf & vbCrLf & _
                "Agora você precisa selecionar a regra manualmente antes de calcular.", _
@@ -804,9 +847,9 @@ Private Sub FormatarTexto(doc As Object, textoFind As String, tamanho As Integer
     End If
 End Sub
 
-' ============================================
+' ================================================
 ' Função auxiliar para formatar valores monetários
-' ============================================
+' ================================================
 Private Sub FormatarPadraoValores(doc As Object)
     On Error Resume Next
     Dim rng As Object

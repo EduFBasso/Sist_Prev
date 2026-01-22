@@ -44,7 +44,10 @@ Sist_Prev/
 │   └── Config_Regras.bas
 │
 ├── 🐍 converter_extrato_inss.py   ← EXTRATOR PYTHON (v1.1)
-├── 📊 erp_prev.xlsm                ← PLANILHA PRINCIPAL
+├── � atualizar_inpc.py           ← ATUALIZA ÍNDICE INPC (BCB)
+├── 🐍 atualizar_selic.py          ← ATUALIZA ÍNDICE SELIC (BCB)
+├── 🐍 sync_vba.py                 ← SINCRONIZA CÓDIGO VBA
+├── �📊 erp_prev.xlsm                ← PLANILHA PRINCIPAL
 └── 📖 COMO_USAR.txt                ← GUIA RÁPIDO
 
 ═══════════════════════════════════════════════════════════════════════════════════════
