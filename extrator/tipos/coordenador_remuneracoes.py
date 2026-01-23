@@ -90,8 +90,6 @@ def extrair_remuneracoes_coordenado(pdf_path: str) -> List[Dict[str, Any]]:
             
             # Se tinha bloco cortado na página anterior, processar sua seção "Remunerações"/"Contribuições" aqui
             if bloco_cortado_pagina_anterior:
-                tipo_txt = f" ({bloco_cortado_pagina_anterior.get('tipo', 'CLT')})" if bloco_cortado_pagina_anterior.get('tipo') else ''
-                print(f"  ⚙️  Processando bloco cortado Seq {bloco_cortado_pagina_anterior['seq']}{tipo_txt} na página {pagina_idx}")
                 _processar_secao_cortada(
                     zona_util=zona_util,
                     bloco_cortado=bloco_cortado_pagina_anterior,
@@ -510,10 +508,6 @@ def _processar_bloco_clt(bloco: Dict[str, Any], pagina: int, registros: List[Dic
     else:
         # Bloco sem seção "Remunerações" = cortado pelo rodapé
         return False
-        # Adicionar tipo_vinculo aos valores soltos
-        for i in range(idx_antes, len(registros)):
-            registros[i]['tipo_vinculo'] = 'CLT'
-            registros[i]['cnpj'] = cnpj
 
 
 def _processar_bloco_facultativo(bloco: Dict[str, Any], pagina: int, registros: List[Dict[str, Any]]) -> bool:
