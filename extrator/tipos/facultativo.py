@@ -47,7 +47,7 @@ def processar_contribuicoes_facultativo(secao_contrib: str, seq: str, pagina_idx
     
     # Pular cabeçalho até encontrar primeira competência
     i = 0
-    while i < len(linhas) and not re.search(r'\\d{2}/\\d{4}', linhas[i]):
+    while i < len(linhas) and not re.search(r'\d{2}/\d{4}', linhas[i]):
         i += 1
     
     # Processar linhas de dados
@@ -62,7 +62,7 @@ def processar_contribuicoes_facultativo(secao_contrib: str, seq: str, pagina_idx
         # Captura: Competência, Contribuição (ignora Data e Salário), Indicadores
         # Até 2 competências por linha
         padroes = re.findall(
-            r'(\\d{2}/\\d{4})\\s+\\d{2}/\\d{2}/\\d{4}\\s+([\\d.,]+)\\s+([\\d.,]+)\\s*([^\\d/]*?)(?=\\d{2}/\\d{4}|$)',
+            r'(\d{2}/\d{4})\s+\d{2}/\d{2}/\d{4}\s+([\d.,]+)\s+([\d.,]+)\s*([^\d/]*?)(?=\d{2}/\d{4}|$)',
             linha
         )
         
