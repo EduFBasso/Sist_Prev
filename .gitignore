@@ -24,3 +24,6 @@ GUIA_NOVO.txt
 COMO_USAR.txt
 
 inss_simulacao/
+cnis/
+_backup_desenvolvimento_/
+__pycache__/
