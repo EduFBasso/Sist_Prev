@@ -29,6 +29,8 @@ from .tipos import (
     processar_valores_soltos_clt,
     processar_contribuicoes_facultativo,
     detectar_tipo_vinculo,
+    detectar_tipo_vinculo_por_seq,
+    obter_nome_tipo,
     TipoVinculo,
 )
 
@@ -58,6 +60,8 @@ __all__ = [
     'processar_valores_soltos_clt',
     'processar_contribuicoes_facultativo',
     'detectar_tipo_vinculo',
+    'detectar_tipo_vinculo_por_seq',
+    'obter_nome_tipo',
     'TipoVinculo',
     # Parsers
     'extrair_vinculos_texto',

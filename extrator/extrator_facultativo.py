@@ -25,7 +25,7 @@ def processar_contribuicoes_facultativo(secao_contrib: str, seq: str, pagina_idx
     
     REGEX PATTERN:
         (\\d{2}/\\d{4})                      # Competência (captura)
-        \\s+\\d{2}/\\d{2}/\\d{4}               # Data Pagto (ignora)
+        \\s+\\d{2}/\\d{2}/\\d{4}             # Data Pagto (ignora)
         \\s+([\\d.,]+)                       # Contribuição (captura como remuneracao)
         \\s+([\\d.,]+)                       # Salário (ignora)
         \\s*([^\\d/]*?)                      # Indicadores (captura)

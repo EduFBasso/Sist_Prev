@@ -506,7 +506,6 @@ def processar_contribuicoes_facultativo(secao_contrib: str, seq: str, pagina_idx
         i += 1
 
 
-def extrair_remuneracoes_texto(caminho_pdf: str) -> list[dict]:
 def extrair_remuneracoes_texto(caminho_pdf: str):
     """Extrai remunerações/contribuições de vínculos CLT e Facultativo.
     
