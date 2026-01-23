@@ -830,42 +830,32 @@ def extrair_remuneracoes_tabelas(linhas_saida) -> list[dict]:
 
 
 def salvar_remuneracoes_csv(caminho_pdf: str, linhas_saida, caminho_csv: str) -> None:
-    """Gera um CSV com todas as remunerações extraídas por vínculo."""
+    """Gera um CSV com todas as remunerações extraídas por vínculo.
+    
+    Utiliza o coordenador modular que delega automaticamente para:
+    - CLT: tipos/clt.py (3 campos)
+    - FACULTATIVO: tipos/facultativo.py (5 campos)
+    """
+    from extrator.tipos.coordenador_remuneracoes import extrair_remuneracoes_coordenado
     
     csv_path = Path(caminho_csv)
     
-    # Extrair remunerações por texto (método principal)
-    remuneracoes_texto = extrair_remuneracoes_texto(caminho_pdf)
+    # Extrair remunerações usando o coordenador modular
+    remuneracoes = extrair_remuneracoes_coordenado(caminho_pdf)
     
-    # Extrair remunerações das tabelas (complementar)
-    remuneracoes_tabelas = extrair_remuneracoes_tabelas(linhas_saida)
-    
-    # Combinar e remover duplicatas
-    todas_remuneracoes = remuneracoes_texto + remuneracoes_tabelas
-    
-    # Deduplica por (seq, codigo_emp, competencia)
-    vistos = set()
-    unicas = []
-    
-    for r in todas_remuneracoes:
-        chave = (r.get("seq", ""), r.get("codigo_emp", ""), r.get("competencia", ""))
-        if chave not in vistos and chave[2]:  # Ignora se não tem competência
-            vistos.add(chave)
-            unicas.append(r)
-    
-    # Ordenar por seq, codigo_emp e competencia
-    unicas.sort(key=lambda x: (x.get("seq", ""), x.get("codigo_emp", ""), x.get("competencia", "")))
+    # Ordenar por seq e competencia
+    remuneracoes.sort(key=lambda x: (x.get("seq", ""), x.get("competencia", "")))
     
     # Salvar CSV
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f, delimiter=";")
         writer.writerow(["Pagina", "Seq", "CodigoEmp", "Competencia", "Remuneracao", "Indicadores"])
         
-        for r in unicas:
+        for r in remuneracoes:
             writer.writerow([
                 r.get("pagina", ""),
                 r.get("seq", ""),
-                r.get("codigo_emp", ""),
+                r.get("cnpj", ""),  # coordenador usa 'cnpj' em vez de 'codigo_emp'
                 r.get("competencia", ""),
                 r.get("remuneracao", ""),
                 r.get("indicadores", ""),
