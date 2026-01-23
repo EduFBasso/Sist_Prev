@@ -35,6 +35,7 @@ from typing import List, Dict, Any
 from .detector import detectar_tipo_vinculo, TipoVinculo, obter_nome_tipo
 from .clt import processar_remuneracoes_clt, processar_valores_soltos_clt
 from .facultativo import processar_contribuicoes_facultativo
+from .config_vinculos import obter_config, CONFIGS_POR_TIPO
 
 
 def extrair_remuneracoes_coordenado(pdf_path: str) -> List[Dict[str, Any]]:
@@ -87,9 +88,10 @@ def extrair_remuneracoes_coordenado(pdf_path: str) -> List[Dict[str, Any]]:
             # Extrair zona útil (entre cabeçalho e rodapé)
             zona_util = _extrair_zona_util(texto_pagina)
             
-            # Se tinha bloco cortado na página anterior, processar sua seção "Remunerações" aqui
+            # Se tinha bloco cortado na página anterior, processar sua seção "Remunerações"/"Contribuições" aqui
             if bloco_cortado_pagina_anterior:
-                print(f"  ⚙️  Processando bloco cortado Seq {bloco_cortado_pagina_anterior['seq']} na página {pagina_idx}")
+                tipo_txt = f" ({bloco_cortado_pagina_anterior.get('tipo', 'CLT')})" if bloco_cortado_pagina_anterior.get('tipo') else ''
+                print(f"  ⚙️  Processando bloco cortado Seq {bloco_cortado_pagina_anterior['seq']}{tipo_txt} na página {pagina_idx}")
                 _processar_secao_cortada(
                     zona_util=zona_util,
                     bloco_cortado=bloco_cortado_pagina_anterior,
@@ -141,7 +143,6 @@ def extrair_remuneracoes_coordenado(pdf_path: str) -> List[Dict[str, Any]]:
                     
                     # Se bloco não tem seção "Contribuições", foi cortado pelo rodapé
                     if not tem_contribuicoes:
-                        print(f"  ⚙️  Processando bloco cortado Seq {bloco['seq']} (FACULTATIVO) na página {pagina_idx+1}")
                         bloco_cortado_pagina_anterior = {
                             'seq': bloco['seq'],
                             'tipo': 'FACULTATIVO',
@@ -214,6 +215,11 @@ def _extrair_blocos_vinculos(texto_pagina: str) -> List[Dict[str, Any]]:
             fim = len(texto_pagina)
         
         bloco_texto = texto_pagina[inicio:fim]
+        
+        # Remover rodapé se presente (pode estar no meio ou final do bloco)
+        rodape_match = re.search(r'O INSS poderá rever a qualquer tempo', bloco_texto, re.IGNORECASE)
+        if rodape_match:
+            bloco_texto = bloco_texto[:rodape_match.start()]
         
         # Extrair metadados básicos do bloco
         seq = _extrair_seq_bloco(bloco_texto)
@@ -381,20 +387,19 @@ def _processar_secao_cortada(zona_util: str, bloco_cortado: Dict[str, Any],
     """
     Processa seção que foi cortada pelo rodapé na página anterior.
     
+    USA CONFIGURAÇÕES:
+        Busca padrões de cabeçalho baseado em config_vinculos.py
+        - CLT: CONFIG_CLT.cabecalho_completo / cabecalho_minimo
+        - FACULTATIVO: CONFIG_FACULTATIVO.cabecalho_completo / cabecalho_minimo
+    
     CENÁRIO:
-        Página N: Bloco com cabeçalho "Seq X" mas SEM seção "Remunerações" ou "Contribuições"
-        Página N+1: Seção órfã começando com "Remunerações\n Competência Remuneração" (CLT)
-                    ou "Contribuições\n Competência Data Pgto" (Facultativo)
+        Página N: Bloco com cabeçalho "Seq X" mas SEM seção de dados
+        Página N+1: Seção órfã com cabeçalho na zona útil
         
     LÓGICA:
-        1. Detectar tipo de seção: "Remunerações" (CLT) ou "Contribuições" (Facultativo)
-        2. Extrair seção a partir do match até próximo bloco ou fim
+        1. Tentar match com configs de todos os tipos (CLT, FACULTATIVO, etc)
+        2. Extrair seção até próximo bloco (usando marcadores das configs)
         3. Delegar para processador apropriado
-        
-    ZONA ÚTIL:
-        O quadro "Identificação do Filiado" (com Nome da mãe) se repete em TODAS as páginas.
-        A zona útil SEMPRE começa após "Nome da mãe: XXXXX", então a seção órfã aparecerá
-        logo no início da zona útil.
     
     Args:
         zona_util: Texto da zona útil da página atual (após "Nome da mãe:")
@@ -403,30 +408,23 @@ def _processar_secao_cortada(zona_util: str, bloco_cortado: Dict[str, Any],
         registros: Lista onde adicionar dicionários de remunerações
     """
     seq = bloco_cortado['seq']
-    tipo = bloco_cortado.get('tipo', 'CLT')  # Default CLT por compatibilidade
+    tipo_str = bloco_cortado.get('tipo', 'CLT')  # Default CLT por compatibilidade
+    match_secao = None
     
-    # Buscar seção CLT (Remunerações)
-    match_secao = re.search(r'Remunerações\s+Competência\s+Remuneração', 
-                           zona_util, re.IGNORECASE)
-    
-    # Fallback CLT: buscar apenas "Competência Remuneração Indicadores" nos primeiros 300 chars
-    if not match_secao:
-        match_secao = re.search(r'(?:^|\n)Competência\s+Remuneração\s+Indicadores', 
-                               zona_util[:300], re.IGNORECASE)
-    
-    # Buscar seção FACULTATIVO (Contribuições)
-    if not match_secao:
-        match_secao = re.search(r'Contribuições\s+Competência\s+Data\s+Pgto', 
-                               zona_util, re.IGNORECASE)
-        if match_secao:
-            tipo = 'FACULTATIVO'
-    
-    # Fallback FACULTATIVO: buscar apenas "Competência Data Pgto" nos primeiros 300 chars
-    if not match_secao:
-        match_secao = re.search(r'(?:^|\n)Competência\s+Data\s+Pgto', 
-                               zona_util[:300], re.IGNORECASE)
-        if match_secao:
-            tipo = 'FACULTATIVO'
+    # Tentar match para cada tipo configurado
+    for tipo_enum, config in CONFIGS_POR_TIPO.items():
+        # Tentar cabeçalho completo
+        if not match_secao and config.cabecalho_completo:
+            match_secao = re.search(config.cabecalho_completo, zona_util, re.IGNORECASE)
+            if match_secao:
+                tipo_str = config.nome
+        
+        # Tentar cabeçalho mínimo (primeiros 300 chars)
+        if not match_secao and config.cabecalho_minimo:
+            pattern = f"(?:^|\\n){config.cabecalho_minimo}"
+            match_secao = re.search(pattern, zona_util[:300], re.IGNORECASE)
+            if match_secao:
+                tipo_str = config.nome
     
     if not match_secao:
         return  # Seção não encontrada
@@ -434,8 +432,13 @@ def _processar_secao_cortada(zona_util: str, bloco_cortado: Dict[str, Any],
     # Extrair seção a partir do match
     inicio_secao = match_secao.start()
     
-    # Extrair até o próximo bloco ou fim
-    match_proximo_bloco = re.search(r'Matrícula do Tipo Filiado', zona_util[inicio_secao:], re.IGNORECASE)
+    # Extrair até o próximo bloco (CLT ou Facultativo)
+    # Usar ambos os marcadores: "Matrícula do Tipo Filiado" ou "Seq. NIT Origem do Vínculo"
+    match_proximo_bloco = re.search(
+        r'(?:Matrícula do Tipo Filiado|Seq\.\s+NIT\s+Origem do Vínculo)', 
+        zona_util[inicio_secao:], 
+        re.IGNORECASE
+    )
     
     if match_proximo_bloco:
         secao = zona_util[inicio_secao:inicio_secao + match_proximo_bloco.start()]
@@ -445,13 +448,13 @@ def _processar_secao_cortada(zona_util: str, bloco_cortado: Dict[str, Any],
     # Processar seção conforme tipo
     idx_antes = len(registros)
     
-    if tipo == 'FACULTATIVO':
+    if tipo_str == 'FACULTATIVO':
         processar_contribuicoes_facultativo(secao, seq, pagina, registros)
         # Adicionar tipo_vinculo
         for i in range(idx_antes, len(registros)):
             registros[i]['tipo_vinculo'] = 'FACULTATIVO'
             registros[i]['cnpj'] = 'FACULTATIVO'
-    else:  # CLT
+    else:  # CLT (default)
         cnpj = bloco_cortado.get('cnpj', '')
         processar_remuneracoes_clt(secao, seq, cnpj, pagina, registros)
         # Adicionar tipo_vinculo e cnpj
