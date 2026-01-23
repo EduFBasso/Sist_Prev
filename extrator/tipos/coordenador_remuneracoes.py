@@ -44,13 +44,15 @@ def extrair_remuneracoes_coordenado(pdf_path: str) -> List[Dict[str, Any]]:
     
     ALGORITMO:
         1. Abre PDF e itera páginas
-        2. Extrai blocos de vínculos
-        3. Detecta tipo de cada bloco
-        4. Delega para processador específico:
+        2. Extrai ZONA ÚTIL (entre cabeçalho e rodapé)
+        3. Processa valores soltos no topo (continuação página anterior)
+        4. Extrai blocos de vínculos
+        5. Detecta tipo de cada bloco
+        6. Delega para processador específico:
            - CLT → processar_remuneracoes_clt()
            - FACULTATIVO → processar_contribuicoes_facultativo()
            - Outros → log e pula
-        5. Consolida todos os registros
+        7. Consolida todos os registros
     
     Args:
         pdf_path: Caminho do arquivo PDF do CNIS
@@ -71,13 +73,39 @@ def extrair_remuneracoes_coordenado(pdf_path: str) -> List[Dict[str, Any]]:
         ]
         
     BASELINE ESPERADO:
-        178 remunerações (163 CLT + 15 Facultativo)
+        178 remunerações (todos CLT)
     """
     registros: List[Dict[str, Any]] = []
+    ultimo_seq_pagina_anterior = None
+    ultimo_cnpj_pagina_anterior = None
+    bloco_cortado_pagina_anterior = None  # Bloco que começou mas foi cortado pelo rodapé
     
     with pdfplumber.open(pdf_path) as pdf:
         for pagina_idx, pagina in enumerate(pdf.pages, start=1):
             texto_pagina = pagina.extract_text() or ""
+            
+            # Extrair zona útil (entre cabeçalho e rodapé)
+            zona_util = _extrair_zona_util(texto_pagina)
+            
+            # Se tinha bloco cortado na página anterior, processar sua seção "Remunerações" aqui
+            if bloco_cortado_pagina_anterior:
+                _processar_secao_cortada(
+                    zona_util=zona_util,
+                    bloco_cortado=bloco_cortado_pagina_anterior,
+                    pagina=pagina_idx,
+                    registros=registros
+                )
+                bloco_cortado_pagina_anterior = None
+            
+            # Processar valores soltos no topo (continuação de página anterior)
+            elif pagina_idx > 1 and ultimo_seq_pagina_anterior:
+                _processar_valores_soltos_continuacao(
+                    zona_util=zona_util,
+                    seq=ultimo_seq_pagina_anterior,
+                    cnpj=ultimo_cnpj_pagina_anterior,
+                    pagina=pagina_idx,
+                    registros=registros
+                )
             
             # Processar blocos de vínculos nesta página
             blocos_vinculos = _extrair_blocos_vinculos(texto_pagina)
@@ -89,11 +117,19 @@ def extrair_remuneracoes_coordenado(pdf_path: str) -> List[Dict[str, Any]]:
                 
                 # Delegar para processador específico
                 if tipo == TipoVinculo.CLT:
-                    _processar_bloco_clt(
+                    tem_remuneracoes = _processar_bloco_clt(
                         bloco=bloco,
                         pagina=pagina_idx,
                         registros=registros
                     )
+                    
+                    # Se bloco não tem seção "Remunerações", foi cortado pelo rodapé
+                    if not tem_remuneracoes:
+                        bloco_cortado_pagina_anterior = bloco
+                    else:
+                        # Guardar para próxima página (valores soltos)
+                        ultimo_seq_pagina_anterior = bloco['seq']
+                        ultimo_cnpj_pagina_anterior = bloco['cnpj']
                 
                 elif tipo == TipoVinculo.FACULTATIVO:
                     _processar_bloco_facultativo(
@@ -101,6 +137,10 @@ def extrair_remuneracoes_coordenado(pdf_path: str) -> List[Dict[str, Any]]:
                         pagina=pagina_idx,
                         registros=registros
                     )
+                    
+                    # Guardar para próxima página
+                    ultimo_seq_pagina_anterior = bloco['seq']
+                    ultimo_cnpj_pagina_anterior = 'FACULTATIVO'
                 
                 elif tipo == TipoVinculo.DESCONHECIDO:
                     # Log para debug (não impede processamento)
@@ -192,7 +232,176 @@ def _extrair_cnpj_bloco(texto: str) -> str:
     return match.group(0) if match else ""
 
 
-def _processar_bloco_clt(bloco: Dict[str, Any], pagina: int, registros: List[Dict[str, Any]]):
+def _extrair_zona_util(texto_pagina: str) -> str:
+    """
+    Extrai a zona útil da página: entre cabeçalho e rodapé.
+    
+    ZONA ÚTIL:
+        INÍCIO: Após "Identificação do Filiado" e dados (NIT, CPF, Nome, Data nasc, Nome mãe)
+        FIM: Antes do rodapé "O INSS poderá rever a qualquer tempo..."
+    
+    OBJETIVO:
+        Isolar apenas a área com dados de vínculos/remunerações,
+        excluindo cabeçalho e rodapé que se repetem em todas as páginas.
+    
+    Args:
+        texto_pagina: Texto completo da página
+        
+    Returns:
+        str: Texto da zona útil
+    """
+    # Marcar início da zona útil (após cabeçalho)
+    inicio = 0
+    
+    # Procurar fim do cabeçalho "Identificação do Filiado"
+    match_cabecalho = re.search(r'Nome da mãe:', texto_pagina, re.IGNORECASE)
+    if match_cabecalho:
+        inicio = match_cabecalho.end()
+    else:
+        # Alternativa: procurar "Relações Previdenciárias"
+        match_relacoes = re.search(r'Relações Previdenciárias', texto_pagina, re.IGNORECASE)
+        if match_relacoes:
+            inicio = match_relacoes.end()
+    
+    # Marcar fim da zona útil (antes do rodapé)
+    fim = len(texto_pagina)
+    
+    # Procurar início do rodapé
+    match_rodape = re.search(r'O INSS poderá rever a qualquer tempo', texto_pagina, re.IGNORECASE)
+    if match_rodape:
+        fim = match_rodape.start()
+    
+    return texto_pagina[inicio:fim]
+
+
+def _processar_valores_soltos_continuacao(zona_util: str, seq: str, cnpj: str, 
+                                          pagina: int, registros: List[Dict[str, Any]]):
+    """
+    Processa valores soltos no topo da página (continuação de página anterior).
+    
+    LÓGICA:
+        Se trocou a página, e ao iniciar a zona útil identificamos MM/YYYY,
+        e NÃO há cabeçalhos (Competência Remuneração Indicadores),
+        então esses valores pertencem à última Seq da página anterior.
+    
+    GATILHOS:
+        ✅ Tem competências (MM/YYYY)
+        ❌ NÃO tem cabeçalho "Competência" ou "Remuneração"
+        ❌ NÃO tem marcador de novo bloco "Matrícula do Tipo Filiado"
+    
+    Args:
+        zona_util: Texto da zona útil da página
+        seq: Seq da página anterior (último bloco processado)
+        cnpj: CNPJ da página anterior
+        pagina: Número da página atual
+        registros: Lista de registros
+    """
+    # Extrair texto antes do primeiro bloco
+    match_primeiro_bloco = re.search(r'Matrícula do Tipo Filiado', zona_util, re.IGNORECASE)
+    
+    if match_primeiro_bloco:
+        # Pegar texto antes do primeiro bloco
+        texto_topo = zona_util[:match_primeiro_bloco.start()]
+    else:
+        # Toda a zona útil (não há bloco nesta página)
+        texto_topo = zona_util
+    
+    # Verificar se há competências no topo
+    if not re.search(r'\d{2}/\d{4}', texto_topo):
+        return  # Não há competências, nada a fazer
+    
+    # Verificar se NÃO é um bloco completo (sem cabeçalhos)
+    if re.search(r'Competência\s+Remuneração', texto_topo, re.IGNORECASE):
+        return  # Tem cabeçalho, não é continuação
+    
+    # Processar valores soltos (formato CLT - 3 campos)
+    linhas = texto_topo.split('\n')
+    
+    for linha in linhas:
+        linha = linha.strip()
+        if not linha:
+            continue
+        
+        # Regex 3 campos CLT: Competência + Remuneração + Indicadores
+        padroes = re.findall(
+            r'(\d{2}/\d{4})\s+([\d.,]+)\s*([^\d/]*?)(?=\d{2}/\d{4}|$)',
+            linha
+        )
+        
+        if padroes:
+            for competencia, remuneracao, indicadores in padroes:
+                from ..utils import limpar_remuneracao, validar_valor
+                remuneracao_limpa = limpar_remuneracao(remuneracao)
+                
+                try:
+                    valor = float(remuneracao_limpa)
+                    if validar_valor(valor):
+                        registros.append({
+                            'pagina': pagina,
+                            'seq': seq,
+                            'codigo_emp': cnpj,
+                            'cnpj': cnpj,
+                            'competencia': competencia,
+                            'remuneracao': remuneracao_limpa,
+                            'indicadores': indicadores.strip(),
+                            'tipo_vinculo': 'CLT'
+                        })
+                except ValueError:
+                    pass
+
+
+def _processar_secao_cortada(zona_util: str, bloco_cortado: Dict[str, Any], 
+                             pagina: int, registros: List[Dict[str, Any]]):
+    """
+    Processa seção "Remunerações" que foi cortada pelo rodapé na página anterior.
+    
+    CENÁRIO:
+        Página anterior: Cabeçalho do vínculo (Seq, NIT, CNPJ, Empresa, Datas) + RODAPÉ
+        Página atual: Seção "Remunerações" com cabeçalho (Competência | Remuneração | Indicadores)
+    
+    LÓGICA:
+        Se início da zona útil tem cabeçalho "Competência Remuneração Indicadores"
+        (ou "Remunerações" seguido de cabeçalho),
+        então processar como continuação do bloco cortado da página anterior.
+    
+    Args:
+        zona_util: Texto da zona útil da página atual
+        bloco_cortado: Bloco que começou na página anterior mas foi cortado
+        pagina: Número da página atual
+        registros: Lista de registros
+    """
+    seq = bloco_cortado['seq']
+    cnpj = bloco_cortado['cnpj']
+    
+    # Verificar se início tem cabeçalho "Competência Remuneração" ou seção "Remunerações"
+    tem_cabecalho_remun = re.search(
+        r'(Remunerações\s*)?Competência\s+Remuneração',
+        zona_util[:500],  # Primeiros 500 chars
+        re.IGNORECASE
+    )
+    
+    if not tem_cabecalho_remun:
+        return  # Não é continuação de seção cortada
+    
+    # Extrair até o próximo bloco ou fim
+    match_proximo_bloco = re.search(r'Matrícula do Tipo Filiado', zona_util, re.IGNORECASE)
+    
+    if match_proximo_bloco:
+        secao_remun = zona_util[:match_proximo_bloco.start()]
+    else:
+        secao_remun = zona_util
+    
+    # Processar seção de remunerações
+    idx_antes = len(registros)
+    processar_remuneracoes_clt(secao_remun, seq, cnpj, pagina, registros)
+    
+    # Adicionar tipo_vinculo e cnpj
+    for i in range(idx_antes, len(registros)):
+        registros[i]['tipo_vinculo'] = 'CLT'
+        registros[i]['cnpj'] = cnpj
+
+
+def _processar_bloco_clt(bloco: Dict[str, Any], pagina: int, registros: List[Dict[str, Any]]) -> bool:
     """
     Processa bloco CLT extraindo remunerações.
     
@@ -202,6 +411,9 @@ def _processar_bloco_clt(bloco: Dict[str, Any], pagina: int, registros: List[Dic
     SEÇÃO PROCESSADA:
         "Remunerações" com 3 campos:
         MM/AAAA | Remuneração | Indicadores
+        
+    Returns:
+        bool: True se encontrou seção "Remunerações", False se bloco cortado pelo rodapé
     """
     texto = bloco['texto']
     seq = bloco['seq']
@@ -227,6 +439,15 @@ def _processar_bloco_clt(bloco: Dict[str, Any], pagina: int, registros: List[Dic
         linhas_zona = texto.split('\n')
         processar_valores_soltos_clt(linhas_zona, seq, cnpj, pagina, registros)
         
+        # Adicionar tipo_vinculo aos valores soltos
+        for i in range(idx_antes, len(registros)):
+            registros[i]['tipo_vinculo'] = 'CLT'
+            registros[i]['cnpj'] = cnpj
+        
+        return True  # Seção encontrada
+    else:
+        # Bloco sem seção "Remunerações" = cortado pelo rodapé
+        return False
         # Adicionar tipo_vinculo aos valores soltos
         for i in range(idx_antes, len(registros)):
             registros[i]['tipo_vinculo'] = 'CLT'
