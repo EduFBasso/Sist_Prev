@@ -1,69 +1,134 @@
 # Extração Completa de CNIS - ATUALIZADA
 
-## 📋 Resumo das Melhorias
-
-O extrator Python `converter_extrato_inss.py` foi **completamente redesenhado** para capturar **TODOS os tipos de vínculos** do CNIS, não apenas os vínculos com empresa.
+**Última atualização:** 23/01/2026  
+**Status:** ✅ OPERACIONAL com suporte completo a Facultativos
 
 ---
 
-## ✅ O Que Foi Implementado
+## 📋 Resumo das Melhorias
 
-### 1. **Extração Genérica de Vínculos**
+O extrator Python `converter_extrato_inss.py` suporta **extração completa** de vínculos CLT e Facultativos do CNIS, incluindo:
 
-Agora captura **TODAS as sequências** automaticamente:
+- ✅ **CLT (Seq 1-10)**: Vínculos com empregador + Remunerações (3 campos)
+- ✅ **FACULTATIVO (Seq 11+)**: Contribuinte Facultativo + Contribuições (5 campos)
+- ✅ **Dual Detection**: Detecta automaticamente o tipo de vínculo pela estrutura do PDF
+- ✅ **Continuação entre páginas**: Mantém contexto seq_atual + codigo_emp_atual
+- ✅ **178 remunerações** extraídas no caso João Carlos (163 CLT + 15 Facultativo)
 
-- ✅ **Seq. 1-10**: Vínculos empregatícios (Empregado ou Agente Público)
-- ✅ **Seq. 11-13**: Contribuinte Facultativo (sem empresa)
-- ✅ **Seq. 14+**: Qualquer novo tipo que o INSS adicionar
+**💡 Para documentação técnica completa, veja:** `../ARCHITECTURE.md`
 
-### 2. **Múltiplos Formatos Suportados**
+---
 
-#### Formato 1: Vínculos com Empresa
+## ✅ Formatos Suportados
 
+### 1️⃣ CLT (Vínculos com Empregador)
+
+**Estrutura no PDF:**
 ```
 Matrícula do Tipo Filiado no
-Seq. NIT Código Emp. Origem do Vínculo Trabalhador Vínculo Data Início Data Fim Últ. Remun.
-1 125.37781.66-1 56.528.946/0001-80 EMPRESA XYZ LTDA Empregado ou Agente Público 19/01/1995 02/06/1995 05/1995
+Seq. NIT          Código Emp.        Origem do Vínculo    Trabalhador...
+2    125.37781.66-1  59.772.269/0001-39  DANTEK COM E IMP...  Empregado ou Agente
+
+Remunerações
+Competência  Remuneração  Indicadores
+05/1996      286,25       13º SALÁRIO
+06/1996      286,25
+07/1996      286,25       MÚLTIPLOS VÍNCULOS
 ```
 
-#### Formato 2: Vínculos Facultativos (SEM Empresa)
+**Detecção:**
+- ✅ Marcador: `"Matrícula do Tipo Filiado"`
+- ✅ Possui: `"Código Emp."` (CNPJ)
+- ✅ Seção: `"Remunerações"`
+
+**Extração:**
+- 3 campos: Competência | Remuneração | Indicadores
+- Até **3 competências por linha**
+- `codigo_emp` = CNPJ da empresa
+
+### 2️⃣ FACULTATIVO (Contribuinte Facultativo)
+
+**Estrutura no PDF:**
+```
+Seq. NIT          Origem do Vínculo    Tipo Filiado    Vínculo      Data Início...
+11   125.37781.66-1  RECOLHIMENTO      Facultativo     01/09/2019   30/10/2019
+
+Contribuições
+Competência  Data Pagto.  Contribuição  Salário Contrib.  Indicadores
+09/2019      15/09/2019   200,00        1045,00           PREC-FACULTCONC
+10/2019      15/10/2019   199,60        1045,00           PREC-FACULTCONC
+```
+
+**Detecção:**
+- ✅ Marcador: `"Origem do Vínculo"` (sem "Matrícula do Tipo Filiado")
+- ✅ Linha seguinte: NIT pattern + `"RECOLHIMENTO"`
+- ❌ NÃO possui: `"Código Emp."`
+- ✅ Seção: `"Contribuições"`
+
+**Extração:**
+- 5 campos (captura 3): Competência | ~~Data Pagto~~ | Contribuição | ~~Salário~~ | Indicadores
+- Até **2 competências por linha**
+- `codigo_emp` = `"FACULTATIVO"` (sem CNPJ)
+- Campo Contribuição → salvo como `remuneracao` no CSV
 
 ```
 Seq. NIT Origem do Vínculo Tipo Filiado no Vínculo Data Início Data Fim Indicadores
 11 125.37781.66-1 RECOLHIMENTO Facultativo 01/09/2019 31/10/2019 IREC-INDPEND
 ```
 
-### 3. **Tipos de Vínculos Reconhecidos**
+---
 
-- `Empregado ou Agente Público`
-- `Contribuinte Individual`
-- `Contribuinte Facultativo`
-- `Recolhimento Facultativo`
-- `Pré-Facultativo Concedido` (PRE-FACULTCONC)
+## 📊 Caso de Teste: João Carlos
 
-### 4. **CSV Estruturado Completo**
+**Cliente:** João Carlos Eduardo Figueiredo Basso  
+**CPF:** 170.140.798-16  
+**NIT:** 125.37781.66-1  
+**PDF:** 8 páginas
 
-Arquivo: `saida_cnis_vinculos_estruturado.csv`
+### Vínculos Extraídos: **13 sequências** ✅
 
-Colunas:
+| Seq  | Tipo        | Período         | Remunerações | Status       |
+| ---- | ----------- | --------------- | ------------ | ------------ |
+| 1    | CLT         | 01-05/1995      | 5            | ✅ Capturado |
+| 2    | CLT         | 05/1996-11/1998 | 31           | ✅ Capturado |
+| 3    | CLT         | -               | 2            | ✅ Capturado |
+| 4    | CLT         | -               | 6            | ✅ Capturado |
+| 5    | CLT         | -               | 3            | ✅ Capturado |
+| 6    | CLT         | -               | 4            | ✅ Capturado |
+| 7    | CLT         | -               | 7            | ✅ Capturado |
+| 8    | CLT         | -               | 38           | ✅ Capturado |
+| 9    | CLT         | -               | 21           | ✅ Capturado |
+| 10   | CLT         | 07/2004-05/2008 | 46           | ✅ Capturado |
+| 11   | Facultativo | 09-10/2019      | 2            | ✅ Capturado |
+| 12   | Facultativo | 10/2024-06/2025 | 9            | ✅ Capturado |
+| 13   | Facultativo | 08-11/2025      | 4            | ✅ Capturado |
 
+**Total:** 178 remunerações (163 CLT + 15 Facultativo)
+
+### Arquivos Gerados
+
+```bash
+python converter_extrato_inss.py cnis/CNIS_JOAO_CARLOS.pdf teste.csv
 ```
-Pagina, Tabela, Seq, NIT, CodigoEmp, Empresa, TipoFiliado,
-DataInicio, DataFim, UltRemunCompetencia, Indicadores,
-NIT_Cliente, CPF_Cliente, NomeCliente, DataNascimentoCliente, NomeMaeCliente
-```
 
-**Exemplo de saída (João Carlos):**
+**Saída:**
+- `teste.csv` - Dados brutos (debug)
+- `teste_dados_cliente.csv` - Identificação (Nome, CPF, NIT, Data Nasc, Nome Mãe)
+- `teste_vinculos_brutos.csv` - Blocos de texto (intermediário)
+- `teste_vinculos_estruturado.csv` - **10 vínculos CLT** parseados
+- `teste_remuneracoes.csv` - **178 remunerações** (CLT + Facultativo)
 
-```
-Seq | TipoFiliado                  | DataInicio  | DataFim     | Indicadores
-1   | Empregado ou Agente Público  | 19/01/1995  | 02/06/1995  |
-2   | Empregado ou Agente Público  | 02/10/1995  |             |
-...
-10  | Empregado ou Agente Público  | 01/07/2004  | 02/05/2008  |
-11  | Contribuinte Facultativo     | 01/09/2019  | 31/10/2019  | IREC-INDPEND
-12  | Contribuinte Facultativo     | 01/10/2024  | 30/06/2025  | IREC-INDPEND
-13  | Contribuinte Facultativo     | 01/08/2025  | 30/11/2025  | IREC-INDPEND
+### CSV Remunerações (exemplo)
+
+```csv
+Pagina;Seq;CodigoEmp;Competencia;Remuneracao;Indicadores
+1;1;56.528.946/0001-80;01/1995;286.25;
+1;1;56.528.946/0001-80;02/1995;286.25;
+6;10;03.782.845/0001-74;01/2005;1005.70;
+7;11;FACULTATIVO;09/2019;200.00;PREC-FACULTCONC
+7;11;FACULTATIVO;10/2019;199.60;PREC-FACULTCONC
+7;12;FACULTATIVO;10/2024;282.40;PREC-FACULTCONC
+7;13;FACULTATIVO;08/2025;303.60;PREC-FACULTCONC
 ```
 
 ---
@@ -181,46 +246,61 @@ RESULTADO:
 
 ---
 
+---
+
 ## 💡 Observações Importantes
 
-### Limitações Conhecidas
+### ✅ Implementado (23/01/2026)
 
-1. **Remunerações extraídas NÃO incluem correção monetária**
+1. **Extração completa CLT + Facultativo**
+   - Dual detection por estrutura do PDF
+   - 178 remunerações extraídas corretamente
+   - Continuação entre páginas funcionando
 
-   - Os valores são nominais (da época)
-   - Para cálculo preciso, aplicar INPC/IPCA
+2. **Ordenação por Seq**
+   - Vínculos ordenados numericamente (1, 2, ..., 10)
+   - Evita Seq 2 fora de ordem
 
-2. **Tabela "Contribuições" (Seq. 12/13) ainda não é processada**
+3. **Remunerações consolidadas**
+   - 161 remunerações únicas (17 duplicatas removidas)
+   - 12 competências com concomitância detectadas
 
-   - As contribuições facultativas individuais estão visíveis no PDF
-   - Mas só extraímos o cabeçalho do vínculo, não a tabela de pagamentos detalhada
+### ⏳ Pendente
 
-3. **Indicadores PRE-FACULTCONC**
-   - São capturados no campo "Indicadores"
-   - Mas ainda não têm tratamento especial no cálculo
+1. **Vínculos Facultativos na aba Vínculos**
+   - Atualmente: Apenas CLT (Seq 1-10) aparecem na aba Vínculos
+   - Pendente: Adicionar Seq 11-13 (Facultativos) também
+   - Solução: Extrair vínculos Facultativo do formato tabular
 
-### Vantagens da Solução Atual
+2. **Correção monetária**
+   - Valores são nominais (da época)
+   - Aplicar INPC/IPCA para valores atualizados
 
-✅ **Genérica**: Não precisa saber quantas sequências existem  
-✅ **Flexível**: Funciona com vínculos com ou sem empresa  
-✅ **Extensível**: Novos tipos de vínculo são capturados automaticamente  
-✅ **Validada**: Testada com caso real (João Carlos, 13 sequências)  
-✅ **Organizada**: CSVs estruturados + relatório Excel formatado
+3. **Validação de dados**
+   - Verificar NIT/CPF com dígito verificador
+   - Alertar sobre datas inválidas
+   - Detectar valores suspeitos
+
+### 🎯 Vantagens da Arquitetura Atual
+
+✅ **Dual Detection**: CLT e Facultativo detectados automaticamente  
+✅ **Estado Persistente**: seq_atual + codigo_emp_atual entre páginas  
+✅ **Zona Útil**: Elimina header/footer, reduz falsos positivos  
+✅ **Flexível**: Novos tipos de vínculo podem ser adicionados facilmente  
+✅ **Testado**: 178 remunerações validadas no caso real  
+✅ **Documentado**: Ver `../ARCHITECTURE.md` para detalhes técnicos
 
 ---
 
-## 📝 Arquivos Modificados
+## 📚 Referências
 
-1. **converter_extrato_inss.py**
-
-   - `extrair_vinculos_texto()` - Detecta 2 formatos de vínculo
-   - `parse_vinculo_texto()` - Parser universal (com/sem empresa)
-   - `salvar_vinculos_estruturados()` - Deduplicação melhorada
-
-2. **modImportacao.bas**
-   - `CriarRelatorioCliente()` - Nova função para planilha resumo
+- **Arquitetura técnica completa:** `../ARCHITECTURE.md`
+- **Roadmap de modularização:** `../PLANO_SIMPLIFICACAO.md`
+- **Índice da documentação:** `INDEX_DOCUMENTACAO.md`
+- **Teste real:** João Carlos (8 páginas, 13 vínculos, 178 remunerações)
 
 ---
 
-**Data da atualização**: 11/01/2026  
-**Status**: ✅ OPERACIONAL e VALIDADO
+**Data da última atualização:** 23/01/2026  
+**Status:** ✅ OPERACIONAL com CLT + Facultativo  
+**Próxima fase:** Modularização (ver PLANO_SIMPLIFICACAO.md)
