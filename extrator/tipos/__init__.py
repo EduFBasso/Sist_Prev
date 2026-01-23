@@ -14,6 +14,13 @@ from .detector import detectar_tipo_vinculo, detectar_tipo_vinculo_por_seq, obte
 from .clt import processar_remuneracoes_clt, processar_valores_soltos_clt
 from .facultativo import processar_contribuicoes_facultativo
 
+# Coordenador de remunerações (delegação automática)
+from .coordenador_remuneracoes import (
+    extrair_remuneracoes_coordenado,
+    extrair_remuneracoes_texto,  # compatibilidade com legado
+    validar_baseline_remuneracoes
+)
+
 __all__ = [
     'processar_remuneracoes_clt',
     'processar_valores_soltos_clt',

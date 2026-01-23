@@ -41,11 +41,11 @@ def processar_remuneracoes_clt(secao_remun: str, seq: str, codigo_emp: str,
         pagina_idx: Número da página do PDF (1-indexed)
         registros: Lista onde adicionar dicionários de remunerações
     """
-    linhas = secao_remun.split('\\n')
+    linhas = secao_remun.split('\n')
     
     # Pular cabeçalho até encontrar primeira competência
     i = 0
-    while i < len(linhas) and not re.search(r'\\d{2}/\\d{4}', linhas[i]):
+    while i < len(linhas) and not re.search(r'\d{2}/\d{4}', linhas[i]):
         i += 1
     
     # Processar linhas de dados
@@ -59,7 +59,7 @@ def processar_remuneracoes_clt(secao_remun: str, seq: str, codigo_emp: str,
         # Regex 3 campos: Competência + Remuneração + Indicadores
         # Até 3 competências por linha
         padroes = re.findall(
-            r'(\\d{2}/\\d{4})\\s+([\\d.,]+)\\s*([^\\d/]*?)(?=\\d{2}/\\d{4}|$)',
+            r'(\d{2}/\d{4})\s+([\d.,]+)\s*([^\d/]*?)(?=\d{2}/\d{4}|$)',
             linha
         )
         
@@ -107,7 +107,7 @@ def processar_valores_soltos_clt(zona_util: list[str], seq: str, codigo_emp: str
         
         # Regex 3 campos (mesmo padrão CLT)
         padroes = re.findall(
-            r'(\\d{2}/\\d{4})\\s+([\\d.,]+)\\s*([^\\d/]*?)(?=\\d{2}/\\d{4}|$)',
+            r'(\d{2}/\d{4})\s+([\d.,]+)\s*([^\d/]*?)(?=\d{2}/\d{4}|$)',
             linha
         )
         
