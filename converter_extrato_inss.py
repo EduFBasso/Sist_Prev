@@ -1,3 +1,42 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Conversor de Extrato CNIS (PDF) para CSV
+
+Este script extrai dados do CNIS (Cadastro Nacional de Informações Sociais) do INSS
+em formato PDF e converte para arquivos CSV estruturados.
+
+SUPORTE A FORMATOS:
+1. CLT (Vínculos com Empregador - Seq 1-10)
+   - Detectado por: "Matrícula do Tipo Filiado" + "Código Emp." presente
+   - Seção: "Remunerações"
+   - Formato: Competência | Remuneração | Indicadores (3 campos)
+   - Até 3 competências por linha
+
+2. FACULTATIVO (Contribuinte Facultativo - Seq 11+)
+   - Detectado por: "Origem do Vínculo" + NIT pattern + "RECOLHIMENTO" + sem "Código Emp."
+   - Seção: "Contribuições"
+   - Formato: Competência | Data Pagto | Contribuição | Salário | Indicadores (5 campos)
+   - Captura: Competência, Contribuição, Indicadores (ignora Data Pagto e Salário)
+   - Até 2 competências por linha
+
+ARQUIVOS GERADOS:
+- [base].csv                          : Dados brutos das tabelas
+- [base]_dados_cliente.csv            : Identificação do filiado
+- [base]_vinculos_brutos.csv          : Blocos de vínculos (texto)
+- [base]_vinculos_estruturado.csv     : Vínculos parseados (estruturado)
+- [base]_remuneracoes.csv             : Remunerações/Contribuições
+
+USO:
+    python converter_extrato_inss.py <caminho_pdf> <caminho_csv_saida>
+
+EXEMPLO:
+    python converter_extrato_inss.py cnis/CNIS_JOAO.pdf saida/cnis.csv
+
+AUTOR: Sistema Prev
+DATA: 2026-01-23
+"""
+
 import sys
 import csv
 import re
@@ -398,8 +437,31 @@ def processar_contribuicoes_facultativo(secao_contrib: str, seq: str, pagina_idx
                                        registros: list) -> None:
     """Processa seção de CONTRIBUIÇÕES (vínculos Facultativos).
     
-    Formato: Competência | Data Pagto. | Contribuição | Salário Contribuição | Indicadores
-    Até 2 conjuntos por linha (vs. 3 em Remunerações CLT)
+    FORMATO FACULTATIVO (5 campos):
+        Contribuições
+        Competência   Data Pagto.   Contribuição   Salário Contrib.   Indicadores
+        09/2019       15/09/2019    200,00         1045,00            PREC-FACULTCONC
+        10/2019       15/10/2019    199,60         1045,00            PREC-FACULTCONC
+    
+    REGEX PATTERN:
+        (\d{2}/\d{4})                      # Competência (captura)
+        \s+\d{2}/\d{2}/\d{4}               # Data Pagto (ignora)
+        \s+([\d.,]+)                       # Contribuição (captura como remuneracao)
+        \s+([\d.,]+)                       # Salário (ignora)
+        \s*([^\d/]*?)                      # Indicadores (captura)
+        (?=\d{2}/\d{4}|$)                  # Lookahead próxima competência ou fim
+    
+    DIFERENÇAS vs CLT:
+        - 5 campos vs 3 campos
+        - Até 2 competências por linha vs 3
+        - codigo_emp = "FACULTATIVO" (sem CNPJ)
+        - Usa "Contribuição" como valor de remuneracao
+    
+    Args:
+        secao_contrib: Texto da seção "Contribuições" até próximo vínculo
+        seq: Número de sequência do vínculo (ex: "11")
+        pagina_idx: Número da página do PDF (1-indexed)
+        registros: Lista onde adicionar dicionários de remunerações
     """
     linhas = secao_contrib.split('\n')
     
@@ -445,18 +507,57 @@ def processar_contribuicoes_facultativo(secao_contrib: str, seq: str, pagina_idx
 
 
 def extrair_remuneracoes_texto(caminho_pdf: str) -> list[dict]:
-    """Extrai tabelas de remuneração de cada vínculo do CNIS.
+def extrair_remuneracoes_texto(caminho_pdf: str):
+    """Extrai remunerações/contribuições de vínculos CLT e Facultativo.
     
-    Para cada vínculo, procura a seção "Remunerações" e extrai as linhas
-    com formato: Competência (mm/aaaa), Remuneração (valor), Indicadores.
+    ESTRATÉGIA DE EXTRAÇÃO:
+    1. ZONA ÚTIL: Delimita conteúdo entre:
+       - Início: "Relações Previdenciárias" OU "Identificação do Filiado"
+       - Fim: "O INSS poderá rever"
+       - Reduz falsos positivos (ignora header/footer)
     
-    Retorna uma lista de dicionários com:
-    - seq: Sequência do vínculo
-    - codigo_emp: CNPJ da empresa
-    - competencia: mm/aaaa
-    - remuneracao: valor
-    - indicadores: texto dos indicadores (se houver)
-    - pagina: número da página
+    2. CONTINUAÇÃO ENTRE PÁGINAS:
+       - Mantém estado: seq_atual + codigo_emp_atual
+       - Se página > 1 E tem seq_atual: processa valores soltos no topo
+       - CLT: valores com regex 3 campos (mm/yyyy valor indicadores)
+       - Facultativo: procura seção "Contribuições" e usa regex 5 campos
+    
+    3. DETECÇÃO DUAL (CLT vs FACULTATIVO):
+       a) CLT:
+          - Marcador: "Matrícula do Tipo Filiado"
+          - Possui: "Código Emp." (CNPJ da empresa)
+          - Seção: "Remunerações"
+          - Regex 3 campos: Competência | Remuneração | Indicadores
+          - Até 3 por linha
+       
+       b) FACULTATIVO:
+          - Marcador: "Origem do Vínculo" + linha com NIT + "RECOLHIMENTO"
+          - NÃO possui: "Código Emp."
+          - Seção: "Contribuições"  
+          - Regex 5 campos: Competência | Data | Contribuição | Salário | Indicadores
+          - Captura: Competência, Contribuição (→ remuneracao), Indicadores
+          - Até 2 por linha
+          - codigo_emp = "FACULTATIVO"
+    
+    4. PROCESSAMENTO:
+       - Busca próximo CLT OU Facultativo (qual vier primeiro)
+       - Extrai Seq e codigo_emp
+       - Processa seção correspondente (Remunerações ou Contribuições)
+       - Avança posição além do bloco processado
+    
+    CAMPOS RETORNADOS:
+        - seq: Número sequência (1, 2, ..., 11, 12, 13)
+        - codigo_emp: CNPJ (CLT) ou "FACULTATIVO"
+        - competencia: mm/aaaa
+        - remuneracao: valor monetário (float como string)
+        - indicadores: marcadores (ex: "PREC-FACULTCONC", "13º SALÁRIO")
+        - pagina: número da página PDF
+    
+    Args:
+        caminho_pdf: Caminho completo do arquivo PDF do CNIS
+    
+    Returns:
+        List[dict]: Lista de dicionários com remunerações/contribuições
     """
     
     pdf_path = Path(caminho_pdf)
