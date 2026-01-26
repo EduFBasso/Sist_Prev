@@ -540,46 +540,61 @@ def salvar_remuneracoes_csv(caminho_pdf: str, linhas_saida, caminho_csv: str) ->
 
 
 def main(argv=None) -> None:
+    """Função principal do CLI."""
     if argv is None:
         argv = sys.argv[1:]
 
+    # Validação e ajuda
+    if len(argv) == 0 or (len(argv) == 1 and argv[0] in ['-h', '--help', 'help']):
+        print(__doc__)
+        sys.exit(0)
+    
     if len(argv) < 2:
-        print("Uso: python converter_extrato_inss.py <entrada.pdf> <saida_raw.csv>")
+        print("❌ ERRO: Argumentos insuficientes\n")
+        print("Uso: python converter_extrato_inss.py <entrada.pdf> <saida.csv>\n")
+        print("Exemplo: python converter_extrato_inss.py cnis/CNIS_JOAO.pdf saida/cnis.csv")
         sys.exit(1)
 
     pdf_in = argv[0]
     csv_out = argv[1]
+    
+    # Validar existência do PDF
+    if not Path(pdf_in).exists():
+        print(f"❌ ERRO: Arquivo não encontrado: {pdf_in}")
+        sys.exit(1)
 
-    linhas_saida, max_cols = extrair_tabelas(pdf_in)
-
-    # CSV genérico com todas as tabelas (como antes)
-    salvar_raw_csv(linhas_saida, max_cols, csv_out)
-
+    # Preparar caminhos de saída
     base = Path(csv_out).stem
     pasta = Path(csv_out).parent
-
-    # Dados do cabeçalho (Identificação do Filiado)
+    pasta.mkdir(parents=True, exist_ok=True)
+    
+    # Extrair tabelas do PDF
+    print(f"📄 Processando: {pdf_in}")
+    linhas_saida, max_cols = extrair_tabelas(pdf_in)
+    
+    # Gerar arquivos CSV
+    salvar_raw_csv(linhas_saida, max_cols, csv_out)
+    
     cabecalho_path = str(pasta / f"{base}_dados_cliente.csv")
     dados_cab = extrair_dados_cabecalho(pdf_in)
     salvar_cabecalho_csv(dados_cab, cabecalho_path)
-
-    # CSV adicional com os blocos de vínculos (texto bruto)
+    
     vinculos_brutos_path = str(pasta / f"{base}_vinculos_brutos.csv")
     salvar_vinculos_brutos(linhas_saida, vinculos_brutos_path)
-
-    # CSV estruturado com um vínculo por linha (inclui dados do cliente, se houver)
+    
     vinculos_struct_path = str(pasta / f"{base}_vinculos_estruturado.csv")
     salvar_vinculos_estruturados(linhas_saida, vinculos_struct_path, dados_cab, pdf_in)
-
-    # CSV com as remunerações de cada vínculo
+    
     remuneracoes_path = str(pasta / f"{base}_remuneracoes.csv")
     salvar_remuneracoes_csv(pdf_in, linhas_saida, remuneracoes_path)
-
-    print(f"Arquivo CSV bruto gerado em: {csv_out}")
-    print(f"Arquivo de vínculos (texto bruto) gerado em: {vinculos_brutos_path}")
-    print(f"Arquivo de vínculos estruturados gerado em: {vinculos_struct_path}")
-    print(f"Arquivo de dados do cliente (cabeçalho) gerado em: {cabecalho_path}")
-    print(f"Arquivo de remunerações gerado em: {remuneracoes_path}")
+    
+    # Mensagens de sucesso
+    print(f"\n✅ Extração concluída! Arquivos gerados:")
+    print(f"   • {csv_out}")
+    print(f"   • {cabecalho_path}")
+    print(f"   • {vinculos_brutos_path}")
+    print(f"   • {vinculos_struct_path}")
+    print(f"   • {remuneracoes_path}")
 
 
 if __name__ == "__main__":
