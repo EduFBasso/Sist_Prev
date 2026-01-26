@@ -28,3 +28,6 @@ inss_simulacao/
 cnis/
 _backup_desenvolvimento_/
 __pycache__/
+.coverage
+.pytest_cache/
+htmlcov/
